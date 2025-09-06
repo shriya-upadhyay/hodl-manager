@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, TrendingUp, Star } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import { useWallet } from "@aptos-labs/wallet-adapter-react"
 
 interface Memecoin {
   id: string
@@ -18,6 +19,16 @@ interface Memecoin {
   logo: string
   change24h: number
   marketCap?: string
+}
+
+interface Balance {
+  amount: string;
+  asset_type: string;
+  metadata: {
+    name: string;
+    symbol: string;
+    decimals: number;
+  };
 }
 
 const memecoins: Memecoin[] = [
@@ -92,6 +103,41 @@ const memecoins: Memecoin[] = [
 export default function MemecoinSelection() {
   const [selectedTokens, setSelectedTokens] = useState<Set<string>>(new Set())
   const [isWalletConnected] = useState(true)
+  const [tokens, setTokens] = useState<Balance[]>()
+  const { account } = useWallet()
+
+  const getTokens = async (address: string) => {
+    const myHeaders = new Headers();
+    myHeaders.append("content-type", "application/json");
+
+  const graphql = JSON.stringify({
+    query: `
+      query MyBalances($owner: String!) {
+        current_fungible_asset_balances(
+          where: { owner_address: { _eq: $owner } }
+        ) {
+          asset_type
+          amount
+          metadata {
+            name
+            symbol
+            decimals
+          }
+        }
+      }`,
+    variables: { owner: address }
+  });
+
+  const response = await fetch('https://api.testnet.aptoslabs.com/v1/graphql', {
+    method: 'POST',
+    headers: myHeaders,
+    body: graphql
+  });
+
+    const data = await response.json();
+    console.log(data)
+    setTokens(data.data.current_fungible_asset_balances);
+  }
 
   const handleTokenSelect = (tokenId: string, checked: boolean) => {
     const newSelected = new Set(selectedTokens)
@@ -160,6 +206,22 @@ export default function MemecoinSelection() {
           </div>
           <h1 className="text-2xl font-semibold text-foreground mb-1">Memecoin Trading</h1>
           <p className="text-sm text-muted-foreground">Select tokens to enable automated trading strategies</p>
+        </div>
+
+        <div className="mb-6">
+
+          <h2 className="text-lg font-semibold text-foreground mb-1">Your Tokens Queried: </h2>
+          <ul className="list-disc list-inside">
+            {tokens?.map((token, index) => {
+              const decimals = token.metadata.decimals || 8;
+              const formattedAmount = (parseFloat(token.amount) / Math.pow(10, decimals)).toFixed(6);
+              return (
+                <li key={index}>
+                  {token.metadata.name} - {formattedAmount} {token.metadata.symbol}
+                </li>
+              );
+            })}
+          </ul>
         </div>
 
         <div className="bg-card/50 border border-border/50 rounded-xl overflow-hidden backdrop-blur-sm">
@@ -238,6 +300,8 @@ export default function MemecoinSelection() {
             </Button>
           </div>
         )}
+
+        <Button onClick={() => getTokens(account?.address?.toString() || '')}>Get Tokens</Button>
       </main>
     </div>
   )
