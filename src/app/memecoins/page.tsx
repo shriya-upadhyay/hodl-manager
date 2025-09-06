@@ -180,14 +180,11 @@ export default function MemecoinSelection() {
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-bold">
-                  {token.symbol === 'DOGE' ? '🐕' : 
-                   token.symbol === 'SHIB' ? '🐕' : 
-                   token.symbol === 'PEPE' ? '🐸' : 
-                   token.symbol === 'FLOKI' ? '🐕' : 
-                   token.symbol === 'BONK' ? '🐕' : 
-                   token.symbol === 'SAFEMOON' ? '🌙' : '💰'}
-                </div>
+                <img 
+                  src={token.logo || "/placeholder.svg"} 
+                  alt={token.name} 
+                  className="w-7 h-7 rounded-full object-cover" 
+                />
                 <div className="min-w-0">
                   <div className="font-medium text-foreground text-sm truncate">{token.name}</div>
                   <div className="text-xs text-muted-foreground">{token.symbol}</div>
