@@ -185,6 +185,18 @@ export default function MemecoinSelection() {
     }
   }
 
+  // Get selected token data for navigation
+  const getSelectedTokenData = () => {
+    return memecoins.filter(token => selectedTokens.has(token.id))
+  }
+
+  // Create URL with selected tokens
+  const getConfigureUrl = () => {
+    const selectedData = getSelectedTokenData()
+    const tokenIds = Array.from(selectedTokens).join(',')
+    return `/trading/configure?tokens=${tokenIds}`
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header isConnected={isWalletConnected} onConnect={() => {}} />
@@ -291,13 +303,15 @@ export default function MemecoinSelection() {
 
         {selectedTokens.size > 0 && (
           <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-            <Button
-              size="lg"
-              className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg px-6 py-3 text-sm font-medium rounded-lg border border-blue-500/20"
-            >
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Enable Trading ({selectedTokens.size})
-            </Button>
+            <Link href={getConfigureUrl()}>
+              <Button
+                size="lg"
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg px-6 py-3 text-sm font-medium rounded-lg border border-blue-500/20"
+              >
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Enable Trading ({selectedTokens.size})
+              </Button>
+            </Link>
           </div>
         )}
 
