@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, TrendingUp, Star } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
+import { useRouter } from "next/navigation"
 
 interface Memecoin {
   id: string
@@ -30,81 +31,20 @@ interface Balance {
     decimals: number;
   };
 }
-
-const memecoins: Memecoin[] = [
-  {
-    id: "1",
-    name: "Dogecoin",
-    symbol: "DOGE",
-    price: 0.073421,
-    balance: 15247,
-    riskScore: "moderate",
-    logo: "/dogecoin-logo.png",
-    change24h: -2.34,
-    marketCap: "$10.5B",
-  },
-  {
-    id: "2",
-    name: "Shiba Inu",
-    symbol: "SHIB",
-    price: 0.00000847,
-    balance: 52847293,
-    riskScore: "high",
-    logo: "/shiba-inu-logo.png",
-    change24h: 5.67,
-    marketCap: "$4.9B",
-  },
-  {
-    id: "3",
-    name: "Pepe",
-    symbol: "PEPE",
-    price: 0.00000089,
-    balance: 98234567,
-    riskScore: "high",
-    logo: "/frog-logo.png",
-    change24h: -8.92,
-    marketCap: "$374M",
-  },
-  {
-    id: "4",
-    name: "Floki Inu",
-    symbol: "FLOKI",
-    price: 0.000027,
-    balance: 1847293,
-    riskScore: "high",
-    logo: "/generic-dog-logo.png",
-    change24h: 12.45,
-    marketCap: "$259M",
-  },
-  {
-    id: "5",
-    name: "Bonk",
-    symbol: "BONK",
-    price: 0.0000134,
-    balance: 4729384,
-    riskScore: "moderate",
-    logo: "/bonk-dog-logo.png",
-    change24h: -1.23,
-    marketCap: "$892M",
-  },
-  {
-    id: "6",
-    name: "SafeMoon",
-    symbol: "SAFEMOON",
-    price: 0.000187,
-    balance: 89472,
-    riskScore: "safe",
-    logo: "/safemoon-logo.jpg",
-    change24h: 0.45,
-    marketCap: "$112M",
-  },
-]
-
 export default function MemecoinSelection() {
-  const [selectedTokens, setSelectedTokens] = useState<Set<string>>(new Set())
+  const [selectedTokenIds, setSelectedTokenIds] = useState<Set<string>>(new Set())
   const [isWalletConnected] = useState(true)
   const [tokens, setTokens] = useState<Balance[]>()
-  const { account } = useWallet()
+  const [memecoins, setMemecoins] = useState<Memecoin[]>([])
+  const { account, connected } = useWallet()
+  const router = useRouter()
+
+  // Automatically query tokens when wallet connects
+  useEffect(() => {
+    if (connected && account?.address) {
+      getTokens(account.address.toString());
+    }
+  }, [connected, account?.address]);  
 
   const getTokens = async (address: string) => {
     const myHeaders = new Headers();
@@ -136,17 +76,39 @@ export default function MemecoinSelection() {
 
     const data = await response.json();
     console.log(data)
-    setTokens(data.data.current_fungible_asset_balances);
+    const queriedTokens = data.data.current_fungible_asset_balances;
+    setTokens(queriedTokens);
+    
+    // Create Memecoin objects from queried tokens
+    const queriedMemecoins: Memecoin[] = queriedTokens.map((token: Balance, index: number) => {
+      const decimals = token.metadata.decimals || 8;
+      const balance = parseFloat(token.amount) / Math.pow(10, decimals);
+      
+      return {
+        id: `queried-${index}`,
+        name: token.metadata.name,
+        symbol: token.metadata.symbol,
+        price: 0, // You'll need to get real price data
+        balance: balance,
+        riskScore: "moderate" as const, // Default risk, you can calculate this
+        logo: "/placeholder.svg", // Default logo
+        change24h: 0, // You'll need to get real change data
+        marketCap: undefined, // You'll need to get real market cap
+      };
+    });
+    
+    // Set queried memecoins directly
+    setMemecoins(queriedMemecoins);
   }
 
   const handleTokenSelect = (tokenId: string, checked: boolean) => {
-    const newSelected = new Set(selectedTokens)
+    const newSelected = new Set(selectedTokenIds)
     if (checked) {
       newSelected.add(tokenId)
     } else {
       newSelected.delete(tokenId)
     }
-    setSelectedTokens(newSelected)
+    setSelectedTokenIds(newSelected)
   }
 
   const getRiskBadgeColor = (risk: string) => {
@@ -185,16 +147,17 @@ export default function MemecoinSelection() {
     }
   }
 
-  // Get selected token data for navigation
+  // Get selected token data
   const getSelectedTokenData = () => {
-    return memecoins.filter(token => selectedTokens.has(token.id))
+    return memecoins.filter(token => selectedTokenIds.has(token.id))
   }
 
-  // Create URL with selected tokens
-  const getConfigureUrl = () => {
+  // Handle navigation to configure page with tokens in localStorage
+  const handleConfigureClick = () => {
     const selectedData = getSelectedTokenData()
-    const tokenIds = Array.from(selectedTokens).join(',')
-    return `/trading/configure?tokens=${tokenIds}`
+    // Store tokens in localStorage
+    localStorage.setItem('selectedTokens', JSON.stringify(selectedData))
+    router.push('/trading/configure')
   }
 
   return (
@@ -218,22 +181,6 @@ export default function MemecoinSelection() {
           </div>
           <h1 className="text-2xl font-semibold text-foreground mb-1">Memecoin Trading</h1>
           <p className="text-sm text-muted-foreground">Select tokens to enable automated trading strategies</p>
-        </div>
-
-        <div className="mb-6">
-
-          <h2 className="text-lg font-semibold text-foreground mb-1">Your Tokens Queried: </h2>
-          <ul className="list-disc list-inside">
-            {tokens?.map((token, index) => {
-              const decimals = token.metadata.decimals || 8;
-              const formattedAmount = (parseFloat(token.amount) / Math.pow(10, decimals)).toFixed(6);
-              return (
-                <li key={index}>
-                  {token.metadata.name} - {formattedAmount} {token.metadata.symbol}
-                </li>
-              );
-            })}
-          </ul>
         </div>
 
         <div className="bg-card/50 border border-border/50 rounded-xl overflow-hidden backdrop-blur-sm">
@@ -292,7 +239,7 @@ export default function MemecoinSelection() {
 
               <div className="flex justify-center">
                 <Checkbox
-                  checked={selectedTokens.has(token.id)}
+                  checked={selectedTokenIds.has(token.id)}
                   onCheckedChange={(checked) => handleTokenSelect(token.id, checked as boolean)}
                   className="data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-black border-white/60 bg-transparent w-4 h-4 rounded-sm"
                 />
@@ -301,21 +248,19 @@ export default function MemecoinSelection() {
           ))}
         </div>
 
-        {selectedTokens.size > 0 && (
+        {selectedTokenIds.size > 0 && (
           <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-            <Link href={getConfigureUrl()}>
-              <Button
-                size="lg"
-                className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg px-6 py-3 text-sm font-medium rounded-lg border border-blue-500/20"
-              >
-                <TrendingUp className="w-4 h-4 mr-2" />
-                Enable Trading ({selectedTokens.size})
-              </Button>
-            </Link>
+            <Button
+              onClick={handleConfigureClick}
+              size="lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg px-6 py-3 text-sm font-medium rounded-lg border border-blue-500/20"
+            >
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Enable Trading ({selectedTokenIds.size})
+            </Button>
           </div>
         )}
 
-        <Button onClick={() => getTokens(account?.address?.toString() || '')}>Get Tokens</Button>
       </main>
     </div>
   )

@@ -9,7 +9,6 @@ import { ArrowLeft, Bot, Settings, TrendingUp, DollarSign, AlertTriangle, CheckC
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
-import { useSearchParams } from "next/navigation"
 
 interface SelectedToken {
   id: string
@@ -21,63 +20,6 @@ interface SelectedToken {
   riskScore: "safe" | "moderate" | "high"
 }
 
-// Same memecoins data as the memecoins page
-const memecoins: SelectedToken[] = [
-  {
-    id: "1",
-    name: "Dogecoin",
-    symbol: "DOGE",
-    price: 0.073421,
-    balance: 15247,
-    logo: "/dogecoin-logo.png",
-    riskScore: "moderate"
-  },
-  {
-    id: "2", 
-    name: "Shiba Inu",
-    symbol: "SHIB",
-    price: 0.00000847,
-    balance: 52847293,
-    logo: "/shiba-inu-logo.png",
-    riskScore: "high"
-  },
-  {
-    id: "3",
-    name: "Pepe",
-    symbol: "PEPE", 
-    price: 0.00000089,
-    balance: 98234567,
-    logo: "/frog-logo.png",
-    riskScore: "high"
-  },
-  {
-    id: "4",
-    name: "Floki Inu",
-    symbol: "FLOKI",
-    price: 0.000027,
-    balance: 1847293,
-    logo: "/generic-dog-logo.png",
-    riskScore: "high"
-  },
-  {
-    id: "5",
-    name: "Bonk",
-    symbol: "BONK",
-    price: 0.0000134,
-    balance: 4729384,
-    logo: "/bonk-dog-logo.png",
-    riskScore: "moderate"
-  },
-  {
-    id: "6",
-    name: "SafeMoon",
-    symbol: "SAFEMOON",
-    price: 0.000187,
-    balance: 89472,
-    logo: "/safemoon-logo.jpg",
-    riskScore: "safe"
-  }
-]
 
 export default function TradingConfigure() {
   const [aiTakeProfit, setAiTakeProfit] = useState(true)
@@ -90,14 +32,22 @@ export default function TradingConfigure() {
   const [selectedTokens, setSelectedTokens] = useState<SelectedToken[]>([])
   
   const { connected } = useWallet()
-  const searchParams = useSearchParams()
 
-  // Get selected tokens from URL parameters
+  // Get selected tokens from localStorage
   useEffect(() => {
-    const tokenIds = searchParams.get('tokens')?.split(',') || []
-    const tokens = memecoins.filter(token => tokenIds.includes(token.id))
-    setSelectedTokens(tokens)
-  }, [searchParams])
+    const storedTokens = localStorage.getItem('selectedTokens')
+    if (storedTokens) {
+      try {
+        const parsedTokens = JSON.parse(storedTokens)
+        setSelectedTokens(parsedTokens)
+        // Clean up localStorage after reading
+        localStorage.removeItem('selectedTokens')
+      } catch (error) {
+        console.error('Error parsing tokens from localStorage:', error)
+        setSelectedTokens([])
+      }
+    }
+  }, [])
 
   const getRiskBadgeColor = (risk: string) => {
     switch (risk) {
