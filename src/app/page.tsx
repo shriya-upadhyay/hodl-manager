@@ -64,6 +64,12 @@ export default function Dashboard() {
                 <p className="text-muted-foreground">Manage your crypto holdings with smart trading features</p>
               </div>
               <div className="flex space-x-2">
+                <Link href="/dashboard">
+                  <Button variant="outline">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Trading Dashboard
+                  </Button>
+                </Link>
                 <Link href="/memecoins">
                   <Button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white">
                     <Coins className="w-4 h-4 mr-2" />

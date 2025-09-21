@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, Bot, Settings, TrendingUp, DollarSign, AlertTriangle, CheckCircle } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
 
@@ -32,20 +33,44 @@ export default function TradingConfigure() {
   const [selectedTokens, setSelectedTokens] = useState<SelectedToken[]>([])
   
   const { connected } = useWallet()
+  const router = useRouter()
 
   // Get selected tokens from localStorage
   useEffect(() => {
-    const storedTokens = localStorage.getItem('selectedTokens')
+    const storedTokens = localStorage.getItem("selectedTokens")
     if (storedTokens) {
       try {
         const parsedTokens = JSON.parse(storedTokens)
         setSelectedTokens(parsedTokens)
-        // Clean up localStorage after reading
-        localStorage.removeItem('selectedTokens')
+        localStorage.removeItem("selectedTokens")
       } catch (error) {
-        console.error('Error parsing tokens from localStorage:', error)
+        console.error("Error parsing tokens from localStorage:", error)
         setSelectedTokens([])
       }
+    }
+  }, [])
+
+  // Prefill strategy settings when editing
+  useEffect(() => {
+    const storedStrategy = localStorage.getItem("strategyDraft")
+    if (!storedStrategy) return
+
+    try {
+      const parsed = JSON.parse(storedStrategy)
+      setAiTakeProfit(Boolean(parsed.aiTakeProfit))
+      setAiStopLoss(Boolean(parsed.aiStopLoss))
+      if (parsed.riskLevel) setRiskLevel(parsed.riskLevel)
+      setCustomOrders(Boolean(parsed.customOrders))
+      if (typeof parsed.takeProfitPrice === "string") setTakeProfitPrice(parsed.takeProfitPrice)
+      if (typeof parsed.stopLossPrice === "string") setStopLossPrice(parsed.stopLossPrice)
+      if (typeof parsed.trailingStop === "string") setTrailingStop(parsed.trailingStop)
+      if (Array.isArray(parsed.tokens) && parsed.tokens.length > 0) {
+        setSelectedTokens(parsed.tokens)
+      }
+    } catch (error) {
+      console.error("Failed to preload strategy settings:", error)
+    } finally {
+      localStorage.removeItem("strategyDraft")
     }
   }, [])
 
@@ -86,6 +111,40 @@ export default function TradingConfigure() {
   }
 
   const estimatedGas = selectedTokens.length * 0.85 // Mock calculation
+
+  const handleDeployStrategy = () => {
+    const tokensWithTargets = selectedTokens.map((token) => {
+      const takeProfitTarget = aiTakeProfit ? token.price * 3 : null
+      const stopLossTarget = aiStopLoss ? token.price * 0.5 : null
+
+      return {
+        ...token,
+        takeProfitTarget,
+        stopLossTarget,
+      }
+    })
+
+    const strategyData = {
+      aiTakeProfit,
+      aiStopLoss,
+      riskLevel,
+      customOrders,
+      takeProfitPrice,
+      stopLossPrice,
+      trailingStop,
+      estimatedGas,
+      tokens: tokensWithTargets,
+      timestamp: Date.now(),
+    }
+
+    try {
+      localStorage.setItem("deployedStrategy", JSON.stringify(strategyData))
+    } catch (error) {
+      console.error("Failed to store strategy configuration:", error)
+    }
+
+    router.push("/dashboard")
+  }
 
   // If no tokens selected, redirect back to memecoins page
   if (selectedTokens.length === 0) {
@@ -350,6 +409,7 @@ export default function TradingConfigure() {
           <Button 
             size="lg"
             className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+            onClick={handleDeployStrategy}
           >
             <Bot className="w-4 h-4 mr-2" />
             Deploy Strategy
