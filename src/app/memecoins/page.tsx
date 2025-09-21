@@ -270,7 +270,7 @@ export default function MemecoinSelection() {
               className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg px-6 py-3 text-sm font-medium rounded-lg border border-blue-500/20"
             >
               <TrendingUp className="w-4 h-4 mr-2" />
-              Enable Trading ({selectedTokenIds.size})
+              Enable Trading Strategy ({selectedTokenIds.size})
             </Button>
           </div>
         )}

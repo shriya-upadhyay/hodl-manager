@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
-import { Settings } from "lucide-react"
+import { Settings, Trash2 } from "lucide-react"
 
 interface StrategyToken {
   id: string
@@ -141,6 +141,15 @@ export default function DashboardPage() {
     router.push("/trading/configure")
   }
 
+  const handleDeleteStrategy = () => {
+    if (typeof window !== "undefined" && !window.confirm("Are you sure you want to delete this strategy?")) {
+      return
+    }
+    localStorage.removeItem("deployedStrategy")
+    setStrategy(null)
+    setTokenStatuses({})
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header isConnected={connected} onConnect={() => {}} />
@@ -228,9 +237,14 @@ export default function DashboardPage() {
 
                           return <span>No thresholds hit yet.</span>
                         })()}
-                        <Button variant="ghost" size="icon" onClick={handleEditStrategy} aria-label="Edit strategy">
-                          <Settings className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" onClick={handleEditStrategy} aria-label="Edit strategy">
+                            <Settings className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={handleDeleteStrategy} aria-label="Delete strategy">
+                            <Trash2 className="w-4 h-4 text-rose-400" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
