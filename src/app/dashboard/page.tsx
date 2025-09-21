@@ -176,53 +176,6 @@ export default function DashboardPage() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Strategy Overview</CardTitle>
-                <CardDescription>Key automation settings saved with this deployment</CardDescription>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">AI Take Profit</span>
-                  <Badge variant="secondary" className={strategy.aiTakeProfit ? "bg-emerald-900/40 text-emerald-300 border-emerald-700/50" : "bg-slate-800/40 text-slate-300 border-slate-700/50"}>
-                    {strategy.aiTakeProfit ? "Enabled" : "Disabled"}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">AI Stop Loss</span>
-                  <Badge variant="secondary" className={strategy.aiStopLoss ? "bg-emerald-900/40 text-emerald-300 border-emerald-700/50" : "bg-slate-800/40 text-slate-300 border-slate-700/50"}>
-                    {strategy.aiStopLoss ? "Enabled" : "Disabled"}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Risk Level</span>
-                  <Badge className="bg-amber-900/40 text-amber-300 border-amber-700/50">
-                    {strategy.riskLevel.charAt(0).toUpperCase() + strategy.riskLevel.slice(1)}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Custom Orders</span>
-                  <span className="font-medium">{strategy.customOrders ? "Enabled" : "Disabled"}</span>
-                </div>
-                {strategy.customOrders && (
-                  <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Take Profit Price</div>
-                      <div className="font-medium">{strategy.takeProfitPrice || "-"}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Stop Loss Price</div>
-                      <div className="font-medium">{strategy.stopLossPrice || "-"}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Trailing Stop %</div>
-                      <div className="font-medium">{strategy.trailingStop || "-"}</div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
                 <CardTitle>Token Targets</CardTitle>
                 <CardDescription>Automatic sell points generated from current prices</CardDescription>
               </CardHeader>
@@ -246,6 +199,9 @@ export default function DashboardPage() {
                       </div>
                       <Badge className={`${getRiskBadgeColor(token.riskScore)} border text-xs px-2 py-0.5`}>
                         {token.riskScore === "safe" ? "LOW" : token.riskScore === "moderate" ? "MED" : "HIGH"}
+                      </Badge>
+                      <Badge className="bg-amber-900/40 text-amber-300 border-amber-700/50">
+                        {strategy.riskLevel.charAt(0).toUpperCase() + strategy.riskLevel.slice(1)} Risk
                       </Badge>
                     </div>
                     <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] sm:grid-cols-[repeat(2,minmax(0,1fr))] gap-3 text-sm items-center">
