@@ -35,6 +35,13 @@ interface StoredStrategy {
   timestamp: number
 }
 
+interface TokenStatus {
+  price: number
+  takeProfitHit: boolean
+  stopLossHit: boolean
+  lastChecked: string
+}
+
 const getRiskBadgeColor = (risk: string) => {
   switch (risk) {
     case "safe":
@@ -50,6 +57,7 @@ const getRiskBadgeColor = (risk: string) => {
 
 export default function DashboardPage() {
   const [strategy, setStrategy] = useState<StoredStrategy | null>(null)
+  const [tokenStatuses, setTokenStatuses] = useState<Record<string, TokenStatus>>({})
   const { connected } = useWallet()
   const router = useRouter()
 
@@ -68,6 +76,57 @@ export default function DashboardPage() {
       setStrategy(null)
     }
   }, [])
+
+  useEffect(() => {
+    if (!strategy || strategy.tokens.length === 0) return
+
+    let isCancelled = false
+
+    const fetchLatestPrices = async () => {
+      try {
+        const symbols = strategy.tokens.map((token) => token.symbol.toUpperCase()).join(",")
+        if (!symbols) return
+
+        const response = await fetch(`/api/memecoins?symbols=${encodeURIComponent(symbols)}&convert=USD`)
+        if (!response.ok) throw new Error(`Price fetch failed: ${response.status}`)
+
+        const json = await response.json()
+        const latest = json.data as Array<{ symbol: string; price: number; priceFormatted: string }>
+        const timestamp = json.timestamp as string
+        const nextStatuses: Record<string, TokenStatus> = {}
+
+        for (const token of strategy.tokens) {
+          const symbol = token.symbol.toUpperCase()
+          const match = latest.find((item) => item.symbol === symbol)
+          if (!match) continue
+
+          const takeProfitHit = Boolean(strategy.aiTakeProfit && token.takeProfitTarget && match.price >= token.takeProfitTarget)
+          const stopLossHit = Boolean(strategy.aiStopLoss && token.stopLossTarget && match.price <= token.stopLossTarget)
+
+          nextStatuses[symbol] = {
+            price: match.price,
+            takeProfitHit,
+            stopLossHit,
+            lastChecked: timestamp,
+          }
+        }
+
+        if (!isCancelled) {
+          setTokenStatuses(nextStatuses)
+        }
+      } catch (error) {
+        console.error("Failed to poll token prices:", error)
+      }
+    }
+
+    fetchLatestPrices()
+    const interval = setInterval(fetchLatestPrices, 60_000)
+
+    return () => {
+      isCancelled = true
+      clearInterval(interval)
+    }
+  }, [strategy])
 
   const handleEditStrategy = () => {
     if (!strategy) return
@@ -174,7 +233,16 @@ export default function DashboardPage() {
                       <img src={token.logo} alt={token.name} className="w-8 h-8 rounded-full object-cover" />
                       <div>
                         <div className="font-medium">{token.name} ({token.symbol})</div>
-                        <div className="text-xs text-muted-foreground">Current Price: ${token.price.toFixed(4)}</div>
+                        {(() => {
+                          const status = tokenStatuses[token.symbol.toUpperCase()]
+                          const priceToShow = status?.price ?? token.price
+                          return (
+                            <div className="text-xs text-muted-foreground">
+                              Live Price: ${priceToShow.toFixed(4)}
+                              {status?.lastChecked ? ` • Updated ${new Date(status.lastChecked).toLocaleTimeString()}` : ""}
+                            </div>
+                          )
+                        })()}
                       </div>
                       <Badge className={`${getRiskBadgeColor(token.riskScore)} border text-xs px-2 py-0.5`}>
                         {token.riskScore === "safe" ? "LOW" : token.riskScore === "moderate" ? "MED" : "HIGH"}
@@ -189,7 +257,21 @@ export default function DashboardPage() {
                         <div className="text-xs text-muted-foreground mb-1">Stop Loss Target</div>
                         <div className="font-medium">{token.stopLossTarget ? `$${token.stopLossTarget.toFixed(4)}` : "-"}</div>
                       </div>
-                      <div className="sm:col-span-2 flex justify-end">
+                      <div className="sm:col-span-2 flex items-center justify-between text-xs text-muted-foreground">
+                        {(() => {
+                          const status = tokenStatuses[token.symbol.toUpperCase()]
+                          if (!status) return <span>Monitoring thresholds…</span>
+
+                          if (status.takeProfitHit) {
+                            return <span className="text-emerald-400">Take profit threshold reached.</span>
+                          }
+
+                          if (status.stopLossHit) {
+                            return <span className="text-rose-400">Stop loss threshold reached.</span>
+                          }
+
+                          return <span>No thresholds hit yet.</span>
+                        })()}
                         <Button variant="ghost" size="icon" onClick={handleEditStrategy} aria-label="Edit strategy">
                           <Settings className="w-4 h-4" />
                         </Button>
