@@ -67,7 +67,7 @@ export default function Dashboard() {
                 <Link href="/dashboard">
                   <Button variant="outline">
                     <RefreshCw className="w-4 h-4 mr-2" />
-                    Trading Dashboard
+                    Trading Strategy Dashboard
                   </Button>
                 </Link>
                 <Link href="/memecoins">

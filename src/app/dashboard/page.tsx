@@ -147,7 +147,7 @@ export default function DashboardPage() {
       <main className="container mx-auto px-4 py-6 max-w-5xl">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Trading Dashboard</h1>
+            <h1 className="text-2xl font-semibold text-foreground">Trading Strategy Dashboard</h1>
             <p className="text-sm text-muted-foreground">Review your deployed strategy and monitoring targets</p>
           </div>
           <div className="flex gap-2">
