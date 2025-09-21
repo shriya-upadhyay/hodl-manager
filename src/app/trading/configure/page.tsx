@@ -110,12 +110,20 @@ export default function TradingConfigure() {
     }
   }
 
+  const riskTargets = {
+    conservative: { takeProfitMultiplier: 1.8, stopLossMultiplier: 0.85 },
+    moderate: { takeProfitMultiplier: 2.5, stopLossMultiplier: 0.7 },
+    aggressive: { takeProfitMultiplier: 3.5, stopLossMultiplier: 0.5 },
+  } as const
+
   const estimatedGas = selectedTokens.length * 0.85 // Mock calculation
 
   const handleDeployStrategy = () => {
+    const { takeProfitMultiplier, stopLossMultiplier } = riskTargets[riskLevel]
+
     const tokensWithTargets = selectedTokens.map((token) => {
-      const takeProfitTarget = aiTakeProfit ? token.price * 3 : null
-      const stopLossTarget = aiStopLoss ? token.price * 0.5 : null
+      const takeProfitTarget = aiTakeProfit ? token.price * takeProfitMultiplier : null
+      const stopLossTarget = aiStopLoss ? token.price * stopLossMultiplier : null
 
       return {
         ...token,
