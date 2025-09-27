@@ -3,6 +3,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, TrendingDown, DollarSign } from "lucide-react"
+import { useEffect, useState } from "react"
+import { useWallet } from "@aptos-labs/wallet-adapter-react"
+
+interface Token {
+  id: string | number
+  name: string
+  symbol: string
+  price: number
+  change24h: number
+  balance: number
+  value: number // USD value
+  icon?: string
+}
+
 
 // Mock data for demonstration
 const mockTokens = [
@@ -49,7 +63,32 @@ const mockTokens = [
 ]
 
 export function TokenGrid() {
-  const totalValue = mockTokens.reduce((sum, token) => sum + token.value, 0)
+  const [tokens, setTokens] = useState<Token[]>([])
+  const [totalValue, setTotalValue] = useState(0)
+  const { account, connected } = useWallet()
+
+  useEffect(() => {
+    if (connected && account?.address) {
+      fetchBalances(account.address.toString());
+    }
+  }, [connected, account?.address]);  
+
+    const fetchBalances = async (address: string) => {
+      try {
+        const res = await fetch("/api/balances", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({address }),
+        })
+        const data = await res.json()
+        console.log(data)
+        setTokens(data.tokens)
+        setTotalValue(data.totalValue)
+      } catch (err) {
+        console.error("Failed to fetch balances", err)
+      }
+    }
+  
 
   return (
     <div className="space-y-6">

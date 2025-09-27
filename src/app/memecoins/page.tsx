@@ -34,7 +34,6 @@ interface Balance {
 export default function MemecoinSelection() {
   const [selectedTokenIds, setSelectedTokenIds] = useState<Set<string>>(new Set())
   const [isWalletConnected] = useState(true)
-  const [tokens, setTokens] = useState<Balance[]>()
   const [memecoins, setMemecoins] = useState<Memecoin[]>([])
   const { account, connected } = useWallet()
   const router = useRouter()
@@ -47,42 +46,18 @@ export default function MemecoinSelection() {
   }, [connected, account?.address]);  
 
   const getTokens = async (address: string) => {
-    const myHeaders = new Headers();
-    myHeaders.append("content-type", "application/json");
 
-  const graphql = JSON.stringify({
-    query: `
-      query MyBalances($owner: String!) {
-        current_fungible_asset_balances(
-          where: { owner_address: { _eq: $owner } }
-        ) {
-          asset_type
-          amount
-          metadata {
-            name
-            symbol
-            decimals
-          }
-        }
-      }`,
-    variables: { owner: address }
-  });
-
-  const response = await fetch('https://api.mainnet.aptoslabs.com/v1/graphql', {
-    method: 'POST',
-    headers: myHeaders,
-    body: graphql
-  });
-
-    const data = await response.json();
-    const queriedTokens = data.data.current_fungible_asset_balances;
-    setTokens(queriedTokens);
+    const response = await fetch("/api/balances", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address }),
+    })
+    const {tokens: queriedTokens} = await response.json()
 
 
     const symbols = queriedTokens.map((t: Balance) => t.metadata.symbol.toUpperCase()).join(',');
     const memecoinsResponse = await fetch(`/api/memecoins?symbols=${symbols}&convert=USD`);
-    const { data: coins } = await memecoinsResponse.json();
-    console.log(coins)
+    const {data : coins} = await memecoinsResponse.json();
     
     // Create Memecoin objects from queried tokens
     const queriedMemecoins: Memecoin[] = queriedTokens.map((token: Balance, index: number) => {
@@ -96,7 +71,7 @@ export default function MemecoinSelection() {
         symbol: token.metadata.symbol,
         price: Number(coinData?.price ?? 0), 
         balance: balance,
-        riskScore: "moderate" as const, 
+        riskScore: coinData?.riskScore,
         logo: "/placeholder.svg", 
         change24h: Number(coinData?.change24h ?? 0),
         marketCap: Number(coinData?.marketCap ?? 0), 
@@ -119,11 +94,11 @@ export default function MemecoinSelection() {
 
   const getRiskBadgeColor = (risk: string) => {
     switch (risk) {
-      case "safe":
+      case "LOW":
         return "bg-emerald-900/40 text-emerald-300 border-emerald-700/50"
-      case "moderate":
+      case "MODERATE":
         return "bg-amber-900/40 text-amber-300 border-amber-700/50"
-      case "high":
+      case "HIGH":
         return "bg-rose-900/40 text-rose-300 border-rose-700/50"
       default:
         return "bg-slate-800/40 text-slate-300 border-slate-700/50"
@@ -142,7 +117,6 @@ export default function MemecoinSelection() {
   }
 
   const formatPrice = (price: number) => {
-    console.log("formatting price", price)
     if (price >= 1) {
       return `$${price.toFixed(2)}`
     } else if (price >= 0.01) {
@@ -247,7 +221,7 @@ export default function MemecoinSelection() {
 
               <div className="flex justify-center">
                 <Badge className={`${getRiskBadgeColor(token.riskScore)} border text-xs px-2 py-0.5`}>
-                  {token.riskScore === "safe" ? "LOW" : token.riskScore === "moderate" ? "MED" : "HIGH"}
+                  {token.riskScore}
                 </Badge>
               </div>
 

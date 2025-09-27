@@ -1,6 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 
+
+function computeRisk(coin: any, convert: string) {
+  const priceData = coin.quote[convert];
+
+  // Risk factors
+  const volatility = Math.abs(priceData.percent_change_24h);
+  const liquidityRatio = priceData.volume_24h / priceData.market_cap;
+  const marketCap = priceData.market_cap;
+
+  let risk = 0;
+
+  // Volatility: higher % change = higher risk
+  if (volatility > 20) risk += 3;
+  else if (volatility > 10) risk += 2;
+  else if (volatility > 5) risk += 1;
+
+  // Liquidity: low ratio = higher risk
+  if (liquidityRatio < 0.01) risk += 3;
+  else if (liquidityRatio < 0.05) risk += 2;
+  else if (liquidityRatio < 0.1) risk += 1;
+
+  // Market cap: smaller = higher risk
+  if (marketCap < 1e7) risk += 3;        // < $10M microcap
+  else if (marketCap < 1e8) risk += 2;   // < $100M smallcap
+  else if (marketCap < 1e9) risk += 1;   // < $1B midcap
+
+  // Map score to label
+  let label = "LOW";
+  if (risk >= 7) label = "HIGH";
+  else if (risk >= 4) label = "MODERATE";
+
+  return { score: risk, label };
+}
+
+
 export async function GET(request: NextRequest) {
   try {
     const apiKey = process.env.CMC_API_KEY;
@@ -48,7 +83,8 @@ export async function GET(request: NextRequest) {
         change24hFormatted: `${priceData.percent_change_24h.toFixed(2)}%`,
         marketCap: priceData.market_cap,
         volume24h: priceData.volume_24h,
-        lastUpdated: coin.last_updated
+        lastUpdated: coin.last_updated,
+        riskScore: computeRisk(coin, convert).label
       });
     }
 
