@@ -19,7 +19,7 @@ interface Memecoin {
   riskScore: "safe" | "moderate" | "high"
   logo: string
   change24h: number
-  marketCap?: string
+  marketCap?: number
 }
 
 interface Balance {
@@ -68,32 +68,38 @@ export default function MemecoinSelection() {
     variables: { owner: address }
   });
 
-  const response = await fetch('https://api.testnet.aptoslabs.com/v1/graphql', {
+  const response = await fetch('https://api.mainnet.aptoslabs.com/v1/graphql', {
     method: 'POST',
     headers: myHeaders,
     body: graphql
   });
 
     const data = await response.json();
-    console.log(data)
     const queriedTokens = data.data.current_fungible_asset_balances;
     setTokens(queriedTokens);
+
+
+    const symbols = queriedTokens.map((t: Balance) => t.metadata.symbol.toUpperCase()).join(',');
+    const memecoinsResponse = await fetch(`/api/memecoins?symbols=${symbols}&convert=USD`);
+    const { data: coins } = await memecoinsResponse.json();
+    console.log(coins)
     
     // Create Memecoin objects from queried tokens
     const queriedMemecoins: Memecoin[] = queriedTokens.map((token: Balance, index: number) => {
       const decimals = token.metadata.decimals || 8;
       const balance = parseFloat(token.amount) / Math.pow(10, decimals);
-      
+      const coinData = coins.find((c: any) => c.symbol.toUpperCase() === token.metadata.symbol.toUpperCase());
+      console.log(coinData)
       return {
         id: `queried-${index}`,
         name: token.metadata.name,
         symbol: token.metadata.symbol,
-        price: 0, // You'll need to get real price data
+        price: Number(coinData?.price ?? 0), 
         balance: balance,
-        riskScore: "moderate" as const, // Default risk, you can calculate this
-        logo: "/placeholder.svg", // Default logo
-        change24h: 0, // You'll need to get real change data
-        marketCap: undefined, // You'll need to get real market cap
+        riskScore: "moderate" as const, 
+        logo: "/placeholder.svg", 
+        change24h: Number(coinData?.change24h ?? 0),
+        marketCap: Number(coinData?.marketCap ?? 0), 
       };
     });
     
@@ -136,6 +142,7 @@ export default function MemecoinSelection() {
   }
 
   const formatPrice = (price: number) => {
+    console.log("formatting price", price)
     if (price >= 1) {
       return `$${price.toFixed(2)}`
     } else if (price >= 0.01) {
@@ -214,7 +221,14 @@ export default function MemecoinSelection() {
 
               <div className="text-right">
                 <div className="text-sm font-mono text-foreground">{formatPrice(token.price)}</div>
-                {token.marketCap && <div className="text-xs text-muted-foreground">{token.marketCap}</div>}
+                {token.marketCap != null && (
+                  token.marketCap >= 1e9
+                    ? `${(token.marketCap / 1e9).toFixed(2)}B`
+                    : token.marketCap >= 1e6
+                    ? `${(token.marketCap / 1e6).toFixed(2)}M`
+                    : token.marketCap >= 1e3
+                    ? `${(token.marketCap / 1e3).toFixed(1)}K`
+                    : token.marketCap.toLocaleString())}
               </div>
 
               <div className="text-right">
@@ -256,7 +270,7 @@ export default function MemecoinSelection() {
               className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg px-6 py-3 text-sm font-medium rounded-lg border border-blue-500/20"
             >
               <TrendingUp className="w-4 h-4 mr-2" />
-              Enable Trading ({selectedTokenIds.size})
+              Enable Trading Strategy ({selectedTokenIds.size})
             </Button>
           </div>
         )}
