@@ -68,7 +68,7 @@ export default function MemecoinSelection() {
     variables: { owner: address }
   });
 
-  const response = await fetch('https://api.mainnet.aptoslabs.com/v1/graphql', {
+  const response = await fetch('https://api.devnet.aptoslabs.com/v1/graphql', {
     method: 'POST',
     headers: myHeaders,
     body: graphql
