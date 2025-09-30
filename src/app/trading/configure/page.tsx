@@ -163,7 +163,7 @@ export default function TradingConfigure() {
           <div className="text-center py-12">
             <h1 className="text-2xl font-semibold text-foreground mb-4">No Tokens Selected</h1>
             <p className="text-muted-foreground mb-6">Please go back and select tokens to configure trading strategies.</p>
-            <Link href="/memecoins">
+            <Link href="/">
               <Button>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Memecoins
@@ -183,7 +183,7 @@ export default function TradingConfigure() {
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
-            <Link href="/memecoins">
+            <Link href="/">
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Memecoins
@@ -409,7 +409,7 @@ export default function TradingConfigure() {
 
         {/* Action Buttons */}
         <div className="flex gap-4 justify-end">
-          <Link href="/memecoins">
+          <Link href="/">
             <Button variant="outline">
               Cancel
             </Button>
