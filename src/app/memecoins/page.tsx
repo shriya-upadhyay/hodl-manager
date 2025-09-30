@@ -44,7 +44,7 @@ export default function MemecoinSelection() {
     if (connected && account?.address) {
       getTokens(account.address.toString());
     }
-  }, [connected, account?.address]);  
+  }, [connected, account?.address]);
 
   const getTokens = async (address: string) => {
     const myHeaders = new Headers();
@@ -83,7 +83,7 @@ export default function MemecoinSelection() {
     const memecoinsResponse = await fetch(`/api/memecoins?symbols=${symbols}&convert=USD`);
     const { data: coins } = await memecoinsResponse.json();
     console.log(coins)
-    
+
     // Create Memecoin objects from queried tokens
     const queriedMemecoins: Memecoin[] = queriedTokens.map((token: Balance, index: number) => {
       const decimals = token.metadata.decimals || 8;
@@ -94,15 +94,15 @@ export default function MemecoinSelection() {
         id: `queried-${index}`,
         name: token.metadata.name,
         symbol: token.metadata.symbol,
-        price: Number(coinData?.price ?? 0), 
+        price: Number(coinData?.price ?? 0),
         balance: balance,
-        riskScore: "moderate" as const, 
-        logo: "/placeholder.svg", 
+        riskScore: "moderate" as const,
+        logo: "/placeholder.svg",
         change24h: Number(coinData?.change24h ?? 0),
-        marketCap: Number(coinData?.marketCap ?? 0), 
+        marketCap: Number(coinData?.marketCap ?? 0),
       };
     });
-    
+
     // Set queried memecoins directly
     setMemecoins(queriedMemecoins);
   }
@@ -208,10 +208,10 @@ export default function MemecoinSelection() {
               }`}
             >
               <div className="flex items-center gap-3">
-                <img 
-                  src={token.logo || "/placeholder.svg"} 
-                  alt={token.name} 
-                  className="w-7 h-7 rounded-full object-cover" 
+                <img
+                  src={token.logo || "/placeholder.svg"}
+                  alt={token.name}
+                  className="w-7 h-7 rounded-full object-cover"
                 />
                 <div className="min-w-0">
                   <div className="font-medium text-foreground text-sm truncate">{token.name}</div>

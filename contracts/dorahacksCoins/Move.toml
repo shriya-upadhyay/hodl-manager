@@ -1,0 +1,11 @@
+[package]
+name = "DoraHacks_MemeCoins"
+version = "0.0.0"
+
+[addresses]
+HODLManager = "_"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "devnet"
+subdir = "aptos-framework"
