@@ -11,7 +11,11 @@
     "deploy:vendor": "tsx scripts/deploy-usdc-vendor.ts",
     "test:vendor": "tsx scripts/test-vendor.ts",
     "mint:memecoin": "tsx scripts/mint-memecoin.ts",
-    "register:memecoin": "tsx scripts/register-memecoin.ts"
+    "mint:usdc": "tsx scripts/mint-usdc-to-wallet.ts",
+    "register:memecoin": "tsx scripts/register-memecoin.ts",
+    "test:stop-loss": "tsx scripts/test-stop-loss.ts",
+    "test:sell-now": "tsx scripts/test-sell-now.ts",
+    "test:token-removal": "tsx scripts/test-token-removal.ts"
   },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^5.1.0",

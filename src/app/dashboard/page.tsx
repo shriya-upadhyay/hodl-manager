@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
-import { Settings, Trash2 } from "lucide-react"
+import { Settings, Trash2, DollarSign } from "lucide-react"
 
 interface StrategyToken {
   id: string
@@ -40,6 +40,13 @@ interface TokenStatus {
   takeProfitHit: boolean
   stopLossHit: boolean
   lastChecked: string
+  stopLossExecuted?: boolean
+  takeProfitExecuted?: boolean
+  executionHash?: string
+  usdcReceived?: number
+  soldAt?: number // Timestamp when token was sold
+  soldPrice?: number // Price at which token was sold
+  isSold?: boolean // Whether the token has been sold
 }
 
 const getRiskBadgeColor = (risk: string) => {
@@ -58,8 +65,138 @@ const getRiskBadgeColor = (risk: string) => {
 export default function DashboardPage() {
   const [strategy, setStrategy] = useState<StoredStrategy | null>(null)
   const [tokenStatuses, setTokenStatuses] = useState<Record<string, TokenStatus>>({})
+  const [executingStopLoss, setExecutingStopLoss] = useState<Set<string>>(new Set())
+  const [sellingTokens, setSellingTokens] = useState<Set<string>>(new Set())
   const { connected } = useWallet()
   const router = useRouter()
+
+  // Function to execute stop loss automatically
+  const executeStopLoss = async (token: StrategyToken, currentPrice: number) => {
+    const symbol = token.symbol.toUpperCase()
+    
+    // Prevent duplicate executions
+    if (executingStopLoss.has(symbol)) return
+    
+    setExecutingStopLoss(prev => new Set([...prev, symbol]))
+    
+    try {
+      console.log(`🔴 Executing stop loss for ${symbol} at price $${currentPrice}`)
+      
+      const response = await fetch('/api/execute-stop-loss', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          walletAddress: '0xa33b58aa0d56f2ebde0b3c09fbcf6cdde1d2e5e6823ec74b0d9d8b297f15ed2e', // Replace with actual user wallet
+          tokenSymbol: symbol,
+          tokenAmount: token.balance || 1000, // Use actual token balance
+          currentPrice,
+          stopLossPrice: token.stopLossTarget || 0,
+        }),
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        console.log(`✅ Stop loss executed successfully for ${symbol}:`, result)
+        
+        // Update token status to reflect execution
+        setTokenStatuses(prev => ({
+          ...prev,
+          [symbol]: {
+            ...prev[symbol],
+            stopLossExecuted: true,
+            executionHash: result.transactionHash,
+            usdcReceived: result.usdcAmount,
+            isSold: true,
+            soldAt: Date.now(),
+            soldPrice: currentPrice,
+          }
+        }))
+      } else {
+        console.error(`❌ Stop loss execution failed for ${symbol}:`, result.error)
+      }
+    } catch (error) {
+      console.error(`❌ Stop loss execution error for ${symbol}:`, error)
+    } finally {
+      setExecutingStopLoss(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(symbol)
+        return newSet
+      })
+    }
+  }
+
+  // Function to manually sell tokens for USDC
+  const sellTokenNow = async (token: StrategyToken) => {
+    const symbol = token.symbol.toUpperCase()
+    const currentStatus = tokenStatuses[symbol]
+    
+    // Prevent duplicate executions
+    if (sellingTokens.has(symbol) || executingStopLoss.has(symbol)) return
+    
+    // Don't sell if already executed
+    if (currentStatus?.stopLossExecuted) return
+    
+    const currentPrice = currentStatus?.price || token.price || 0
+    if (currentPrice <= 0) {
+      console.error(`Cannot sell ${symbol}: No current price available`)
+      return
+    }
+    
+    setSellingTokens(prev => new Set([...prev, symbol]))
+    
+    try {
+      console.log(`💰 Manually selling ${symbol} at price $${currentPrice}`)
+      
+      const response = await fetch('/api/sell-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          walletAddress: '0xa33b58aa0d56f2ebde0b3c09fbcf6cdde1d2e5e6823ec74b0d9d8b297f15ed2e', // Replace with actual user wallet
+          tokenSymbol: symbol,
+          tokenAmount: token.balance || 1000, // Use actual token balance
+          usdcAmount: Math.floor((token.balance || 1000) * currentPrice * 1_000_000), // Convert to 6 decimals
+          reason: 'manual',
+        }),
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        console.log(`✅ Manual sale executed successfully for ${symbol}:`, result)
+        
+        // Update token status to reflect execution
+        setTokenStatuses(prev => ({
+          ...prev,
+          [symbol]: {
+            ...prev[symbol],
+            stopLossExecuted: true, // Reuse the same flag for UI consistency
+            executionHash: result.transactionHash,
+            usdcReceived: result.usdcMinted,
+            isSold: true,
+            soldAt: Date.now(),
+            soldPrice: currentPrice,
+          }
+        }))
+      } else {
+        console.error(`❌ Manual sale failed for ${symbol}:`, result.error)
+        alert(`Failed to sell ${symbol}: ${result.error}`)
+      }
+    } catch (error) {
+      console.error(`❌ Manual sale error for ${symbol}:`, error)
+      alert(`Error selling ${symbol}: ${error}`)
+    } finally {
+      setSellingTokens(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(symbol)
+        return newSet
+      })
+    }
+  }
 
   useEffect(() => {
     try {
@@ -103,11 +240,30 @@ export default function DashboardPage() {
           const takeProfitHit = Boolean(strategy.aiTakeProfit && token.takeProfitTarget && match.price >= token.takeProfitTarget)
           const stopLossHit = Boolean(strategy.aiStopLoss && token.stopLossTarget && match.price <= token.stopLossTarget)
 
+          // Get previous status to check if this is a new stop loss trigger
+          const prevStatus = tokenStatuses[symbol]
+          const isNewStopLoss = stopLossHit && (!prevStatus || !prevStatus.stopLossHit) && !prevStatus?.stopLossExecuted
+
           nextStatuses[symbol] = {
             price: match.price,
             takeProfitHit,
             stopLossHit,
             lastChecked: timestamp,
+            // Preserve execution status
+            stopLossExecuted: prevStatus?.stopLossExecuted || false,
+            takeProfitExecuted: prevStatus?.takeProfitExecuted || false,
+            executionHash: prevStatus?.executionHash,
+            usdcReceived: prevStatus?.usdcReceived,
+            // Preserve sold status
+            isSold: prevStatus?.isSold || false,
+            soldAt: prevStatus?.soldAt,
+            soldPrice: prevStatus?.soldPrice,
+          }
+
+          // Automatically execute stop loss if triggered for the first time
+          if (isNewStopLoss && !executingStopLoss.has(symbol)) {
+            console.log(`🚨 Stop loss triggered for ${symbol} at $${match.price} (target: $${token.stopLossTarget})`)
+            executeStopLoss(token, match.price)
           }
         }
 
@@ -183,13 +339,29 @@ export default function DashboardPage() {
           </Card>
         ) : (
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Token Targets</CardTitle>
-                <CardDescription>Automatic sell points generated from current prices</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {strategy.tokens.map((token) => (
+            {/* Active Tokens */}
+            {strategy.tokens.filter(token => {
+              const status = tokenStatuses[token.symbol.toUpperCase()]
+              return !status?.isSold
+            }).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Active Holdings</CardTitle>
+                  <CardDescription>
+                    {strategy.tokens.filter(token => {
+                      const status = tokenStatuses[token.symbol.toUpperCase()]
+                      return !status?.isSold
+                    }).length} active token{strategy.tokens.filter(token => {
+                      const status = tokenStatuses[token.symbol.toUpperCase()]
+                      return !status?.isSold
+                    }).length !== 1 ? 's' : ''} being monitored
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {strategy.tokens.filter(token => {
+                    const status = tokenStatuses[token.symbol.toUpperCase()]
+                    return !status?.isSold
+                  }).map((token) => (
                   <div key={token.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 bg-muted/30 rounded-lg">
                     <div className="flex items-center gap-3">
                       <img src={token.logo} alt={token.name} className="w-8 h-8 rounded-full object-cover" />
@@ -213,7 +385,7 @@ export default function DashboardPage() {
                         {strategy.riskLevel.charAt(0).toUpperCase() + strategy.riskLevel.slice(1)} Risk
                       </Badge>
                     </div>
-                    <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] sm:grid-cols-[repeat(2,minmax(0,1fr))] gap-3 text-sm items-center">
+                    <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] sm:grid-cols-[repeat(3,minmax(0,1fr))] gap-3 text-sm items-center">
                       <div>
                         <div className="text-xs text-muted-foreground mb-1">Take Profit Target</div>
                         <div className="font-medium">{token.takeProfitTarget ? `$${token.takeProfitTarget.toFixed(4)}` : "-"}</div>
@@ -222,24 +394,129 @@ export default function DashboardPage() {
                         <div className="text-xs text-muted-foreground mb-1">Stop Loss Target</div>
                         <div className="font-medium">{token.stopLossTarget ? `$${token.stopLossTarget.toFixed(4)}` : "-"}</div>
                       </div>
-                      <div className="sm:col-span-2 flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center justify-center">
                         {(() => {
                           const status = tokenStatuses[token.symbol.toUpperCase()]
+                          const symbol = token.symbol.toUpperCase()
+                          const isExecuting = executingStopLoss.has(symbol)
+                          const isSelling = sellingTokens.has(symbol)
+                          const isAlreadySold = status?.stopLossExecuted
+                          const currentPrice = status?.price || token.price || 0
+                          
+                          // Show sell button if not already sold and not currently processing
+                          if (!isAlreadySold && !isExecuting && !isSelling && currentPrice > 0) {
+                            const estimatedUSDC = ((token.balance || 1000) * currentPrice).toFixed(2)
+                            return (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => sellTokenNow(token)}
+                                className="text-emerald-400 border-emerald-400/50 hover:bg-emerald-400/10 hover:border-emerald-400"
+                              >
+                                <DollarSign className="w-3 h-3 mr-1" />
+                                Sell Now
+                                <span className="ml-1 text-xs opacity-75">
+                                  (~${estimatedUSDC})
+                                </span>
+                              </Button>
+                            )
+                          }
+                          
+                          if (isSelling) {
+                            return (
+                              <Button variant="outline" size="sm" disabled>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-3 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+                                  Converting...
+                                </div>
+                              </Button>
+                            )
+                          }
+                          
+                          if (isAlreadySold) {
+                            return (
+                              <Button variant="outline" size="sm" disabled className="text-emerald-400 border-emerald-400/50">
+                                ✅ Converted
+                              </Button>
+                            )
+                          }
+                          
+                          return null
+                        })()}
+                      </div>
+                      <div className="col-span-2 sm:col-span-3 flex items-center justify-between text-xs text-muted-foreground">
+                        {(() => {
+                          const status = tokenStatuses[token.symbol.toUpperCase()]
+                          const symbol = token.symbol.toUpperCase()
+                          const isExecuting = executingStopLoss.has(symbol)
+                          const isSelling = sellingTokens.has(symbol)
+                          
                           if (!status) return <span>Monitoring thresholds…</span>
                     
+                          if (status.stopLossExecuted) {
+                            return (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-emerald-400">✅ Converted to USDC</span>
+                                <span className="text-xs text-muted-foreground">
+                                  Received {status.usdcReceived?.toFixed(2)} USDC
+                                </span>
+                                {status.executionHash && (
+                                  <a 
+                                    href={`https://explorer.aptoslabs.com/txn/${status.executionHash}?network=devnet`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-400 hover:text-blue-300 underline"
+                                  >
+                                    View transaction
+                                  </a>
+                                )}
+                              </div>
+                            )
+                          }
+
+                          if (isSelling) {
+                            return <span className="text-yellow-400">⏳ Converting to USDC...</span>
+                          }
+
+                          if (isExecuting) {
+                            return <span className="text-yellow-400">⏳ Executing stop loss...</span>
+                          }
+
                           if (status.takeProfitHit) {
-                            // call DEX to convert to USD stablecoin
                             return <span className="text-emerald-400">Take profit threshold reached.</span>
                           }
 
                           if (status.stopLossHit) {
-                            // call DEX to convert to USD stablecoin
-                            return <span className="text-rose-400">Stop loss threshold reached.</span>
+                            return <span className="text-rose-400">🔴 Stop loss triggered - Converting to USDC...</span>
                           }
                           
                           return <span>No thresholds hit yet.</span>
                         })()}
                         <div className="flex items-center gap-1">
+                          {(() => {
+                            const status = tokenStatuses[token.symbol.toUpperCase()]
+                            const symbol = token.symbol.toUpperCase()
+                            const isExecuting = executingStopLoss.has(symbol)
+                            const isSelling = sellingTokens.has(symbol)
+                            const isAlreadySold = status?.stopLossExecuted
+                            
+                            // Show sell button if not already sold and not currently processing
+                            if (!isAlreadySold && !isExecuting && !isSelling) {
+                              return (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  onClick={() => sellTokenNow(token)}
+                                  aria-label="Sell now for USDC"
+                                  className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/10"
+                                  title="Convert to USDC at current market price"
+                                >
+                                  <DollarSign className="w-4 h-4" />
+                                </Button>
+                              )
+                            }
+                            return null
+                          })()}
                           <Button variant="ghost" size="icon" onClick={handleEditStrategy} aria-label="Edit strategy">
                             <Settings className="w-4 h-4" />
                           </Button>
@@ -253,6 +530,79 @@ export default function DashboardPage() {
                 ))}
               </CardContent>
             </Card>
+            )}
+
+            {/* Sold Tokens */}
+            {strategy.tokens.filter(token => {
+              const status = tokenStatuses[token.symbol.toUpperCase()]
+              return status?.isSold
+            }).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Sold Tokens</span>
+                    <Badge className="bg-slate-700/40 text-slate-300 border-slate-600/50">
+                      Completed
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription>
+                    {strategy.tokens.filter(token => {
+                      const status = tokenStatuses[token.symbol.toUpperCase()]
+                      return status?.isSold
+                    }).length} token{strategy.tokens.filter(token => {
+                      const status = tokenStatuses[token.symbol.toUpperCase()]
+                      return status?.isSold
+                    }).length !== 1 ? 's' : ''} converted to USDC
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {strategy.tokens.filter(token => {
+                    const status = tokenStatuses[token.symbol.toUpperCase()]
+                    return status?.isSold
+                  }).map((token) => {
+                    const status = tokenStatuses[token.symbol.toUpperCase()]
+                    return (
+                      <div key={token.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 bg-muted/20 rounded-lg border border-slate-700/30">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <img src={token.logo} alt={token.name} className="w-8 h-8 rounded-full object-cover opacity-60" />
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center">
+                              <span className="text-[8px] text-white">✓</span>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-muted-foreground">{token.name} ({token.symbol})</div>
+                            <div className="text-xs text-muted-foreground">
+                              Sold at ${status?.soldPrice?.toFixed(4)} • {status?.soldAt ? new Date(status.soldAt).toLocaleDateString() : 'Unknown date'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="text-right">
+                            <div className="text-sm font-medium text-emerald-400">
+                              +{status?.usdcReceived?.toFixed(2)} USDC
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {token.balance || 1000} {token.symbol} → USDC
+                            </div>
+                          </div>
+                          {status?.executionHash && (
+                            <a 
+                              href={`https://explorer.aptoslabs.com/txn/${status.executionHash}?network=devnet`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-400 hover:text-blue-300 underline"
+                            >
+                              View Transaction
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </main>
