@@ -214,19 +214,19 @@ async function main() {
 	console.log("\n=== Compiling packages locally ===");
 
 	// Compile the USDC vendor package
-	compilePackage("move/dorahacks_usdc_vendor", "move/dorahacks_usdc_vendor/dorahacks_usdc_vendor.json", [
+	compilePackage("contracts/dorahacks_usdc_vendor", "contracts/dorahacks_usdc_vendor/dorahacks_usdc_vendor.json", [
 		{ name: "DoraHacks", address: vendor.accountAddress },
 		{ name: "HODLManager", address: vendor.accountAddress },
 	]);
 
 	// Compile the DoodooCoin package
-	compilePackage("move/dorahacksCoins", "move/dorahacksCoins/dorahacksCoins.json", [
+	compilePackage("contracts/dorahacksCoins", "contracts/dorahacksCoins/dorahacksCoins.json", [
 		{ name: "HODLManager", address: vendor.accountAddress }
 	]);
 
 	// Publish USDC vendor package
 	console.log(`\n=== Publishing USDC Vendor package to ${aptos.config.network} network ===`);
-	const { metadataBytes: vendorMetadataBytes, byteCode: vendorByteCode } = getPackageBytesToPublish("move/dorahacks_usdc_vendor/dorahacks_usdc_vendor.json");
+	const { metadataBytes: vendorMetadataBytes, byteCode: vendorByteCode } = getPackageBytesToPublish("contracts/dorahacks_usdc_vendor/dorahacks_usdc_vendor.json");
 
 	const vendorPublishTransaction = await aptos.publishPackageTransaction({
 		account: vendor.accountAddress,
@@ -244,7 +244,7 @@ async function main() {
 
 	// Publish DoodooCoin package
 	console.log(`\n=== Publishing DoodooCoin package to ${aptos.config.network} network ===`);
-	const { metadataBytes: coinMetadataBytes, byteCode: coinByteCode } = getPackageBytesToPublish("move/dorahacksCoins/dorahacksCoins.json");
+	const { metadataBytes: coinMetadataBytes, byteCode: coinByteCode } = getPackageBytesToPublish("contracts/dorahacksCoins/dorahacksCoins.json");
 
 	const coinPublishTransaction = await aptos.publishPackageTransaction({
 		account: vendor.accountAddress,
