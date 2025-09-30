@@ -54,7 +54,12 @@ export default function MemecoinSelection() {
     query: `
       query MyBalances($owner: String!) {
         current_fungible_asset_balances(
-          where: { owner_address: { _eq: $owner } }
+          where: { 
+            owner_address: { _eq: $owner }
+            amount: { _gt: "0" }
+          }
+          distinct_on: [asset_type]
+          order_by: [{ asset_type: asc }, { last_transaction_version: desc }]
         ) {
           asset_type
           amount
@@ -76,22 +81,45 @@ export default function MemecoinSelection() {
 
     const data = await response.json();
     const queriedTokens = data.data.current_fungible_asset_balances;
-    setTokens(queriedTokens);
+    
+    // Filter out zero balances and deduplicate by symbol
+    const filteredTokens = queriedTokens.filter((token: Balance) => 
+      parseFloat(token.amount) > 0
+    );
+    
+    // Group tokens by symbol and sum balances for duplicates
+    const tokenMap = new Map<string, Balance>();
+    
+    filteredTokens.forEach((token: Balance) => {
+      const symbol = token.metadata.symbol.toUpperCase();
+      const existing = tokenMap.get(symbol);
+      
+      if (existing) {
+        // Sum the amounts for duplicate symbols
+        const existingAmount = parseFloat(existing.amount);
+        const newAmount = parseFloat(token.amount);
+        existing.amount = (existingAmount + newAmount).toString();
+      } else {
+        tokenMap.set(symbol, { ...token });
+      }
+    });
+    
+    const deduplicatedTokens = Array.from(tokenMap.values());
+    setTokens(deduplicatedTokens);
 
-
-    const symbols = queriedTokens.map((t: Balance) => t.metadata.symbol.toUpperCase()).join(',');
+    const symbols = deduplicatedTokens.map((t: Balance) => t.metadata.symbol.toUpperCase()).join(',');
     const memecoinsResponse = await fetch(`/api/memecoins?symbols=${symbols}&convert=USD`);
     const { data: coins } = await memecoinsResponse.json();
     console.log(coins)
 
-    // Create Memecoin objects from queried tokens
-    const queriedMemecoins: Memecoin[] = queriedTokens.map((token: Balance, index: number) => {
+    // Create Memecoin objects from deduplicated tokens
+    const queriedMemecoins: Memecoin[] = deduplicatedTokens.map((token: Balance, index: number) => {
       const decimals = token.metadata.decimals || 8;
       const balance = parseFloat(token.amount) / Math.pow(10, decimals);
       const coinData = coins.find((c: any) => c.symbol.toUpperCase() === token.metadata.symbol.toUpperCase());
       console.log(coinData)
       return {
-        id: `queried-${index}`,
+        id: `queried-${token.metadata.symbol}-${index}`,
         name: token.metadata.name,
         symbol: token.metadata.symbol,
         price: Number(coinData?.price ?? 0),
