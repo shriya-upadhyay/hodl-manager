@@ -414,7 +414,7 @@ export default function DashboardPage() {
             <Link href="/">
               <Button variant="outline">Portfolio Overview</Button>
             </Link>
-            <Link href="/memecoins">
+            <Link href="/">
               <Button variant="outline">Configure New Strategy</Button>
             </Link>
           </div>
@@ -427,7 +427,7 @@ export default function DashboardPage() {
               <CardDescription>Select tokens and deploy a strategy to see it here.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Link href="/memecoins">
+              <Link href="/">
                 <Button>Browse Tokens</Button>
               </Link>
             </CardContent>
