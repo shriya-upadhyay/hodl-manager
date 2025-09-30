@@ -121,40 +121,43 @@ This project includes TypeScript scripts for automated deployment and testing us
 #### 1. Deploy Memecoin
 
 ```bash
+# Generate a new deployer account
 npm run deploy:memecoin
+
+# Or use an existing account
+DEPLOYER_PRIVATE_KEY="your_private_key" npm run deploy:memecoin
 ```
 
 This will:
-
-- Generate a new deployer account and fund it
+- Use existing account (if `DEPLOYER_PRIVATE_KEY` provided) or generate new one
 - Compile and publish the DoodooCoin package
-- Output the deployer address and private key
+- Output the deployer address and private key (if generated)
 
-**Save the private key from the output!**
+**Save the private key from the output to use for the vendor deployment!**
 
 #### 2. Deploy USDC Vendor
 
 ```bash
-# Using the same account as memecoin deployer
-VENDOR_PRIVATE_KEY="your_memecoin_deployer_private_key" npm run deploy:vendor
+# Using the same account as memecoin deployer (recommended)
+DEPLOYER_PRIVATE_KEY="your_memecoin_deployer_private_key" npm run deploy:vendor
 
 # Or generate a new vendor account
 npm run deploy:vendor
 ```
 
 This will:
-
-- Use existing account (if `VENDOR_PRIVATE_KEY` provided) or generate new one
+- Use existing account (if `DEPLOYER_PRIVATE_KEY` provided) or generate new one
 - Compile and publish the USDC Vendor package
 - Initialize the vendor contract
-- Output the vendor address and private key
+- Output the vendor address and private key (if generated)
 
 #### 3. Test the Deployed Contracts
 
 ```bash
-VENDOR_PRIVATE_KEY="your_vendor_private_key" npm run test:vendor
+# Using the same deployer account
+DEPLOYER_PRIVATE_KEY="your_deployer_private_key" npm run test:vendor
 
-# Or if memecoin was deployed to a different address
+# Or if using different accounts
 VENDOR_PRIVATE_KEY="your_vendor_private_key" MEMECOIN_ADDRESS="memecoin_deployer_address" npm run test:vendor
 ```
 
@@ -168,7 +171,8 @@ This will:
 
 ### Environment Variables
 
-- `VENDOR_PRIVATE_KEY` - Required for deploy:vendor and test:vendor scripts
+- `DEPLOYER_PRIVATE_KEY` - Private key to use for deployments (recommended for consistent deployer)
+- `VENDOR_PRIVATE_KEY` - Alternative to DEPLOYER_PRIVATE_KEY for backward compatibility
 - `MEMECOIN_ADDRESS` - Optional for test:vendor (defaults to vendor address)
 - `APTOS_NETWORK` - Network to deploy to (defaults to devnet)
 

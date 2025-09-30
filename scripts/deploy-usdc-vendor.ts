@@ -19,7 +19,8 @@ import { compilePackage, getPackageBytesToPublish } from "./utils";
  *
  * Usage:
  * - Run without arguments to generate a new vendor account
- * - Set VENDOR_PRIVATE_KEY environment variable to use an existing account
+ * - Set DEPLOYER_PRIVATE_KEY environment variable to use an existing account
+ * - Also accepts VENDOR_PRIVATE_KEY for backward compatibility
  */
 
 // Set up the client
@@ -45,9 +46,10 @@ async function initializeVendor(vendor: Account): Promise<string> {
 }
 
 async function main() {
-	// Create or load vendor account
-	const vendor = process.env.VENDOR_PRIVATE_KEY
-		? Account.fromPrivateKey({ privateKey: new Ed25519PrivateKey(process.env.VENDOR_PRIVATE_KEY) })
+	// Create or load vendor account (support both DEPLOYER_PRIVATE_KEY and VENDOR_PRIVATE_KEY)
+	const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.VENDOR_PRIVATE_KEY;
+	const vendor = privateKey
+		? Account.fromPrivateKey({ privateKey: new Ed25519PrivateKey(privateKey) })
 		: Account.generate();
 
 	console.log("\n=== USDC Vendor Deployment ===");
@@ -92,7 +94,7 @@ async function main() {
 
 	console.log("\n=== USDC Vendor deployment completed successfully! ===");
 	console.log(`Vendor address: ${vendor.accountAddress.toString()}`);
-	if (!process.env.VENDOR_PRIVATE_KEY) {
+	if (!privateKey) {
 		console.log(`Private key: ${vendor.privateKey.toString()}`);
 		console.log("Save this private key to use in other scripts!");
 	}

@@ -17,7 +17,7 @@ import {
  * It performs minting, transferring, and vending operations.
  *
  * Required environment variables:
- * - VENDOR_PRIVATE_KEY: The private key of the deployed vendor
+ * - DEPLOYER_PRIVATE_KEY or VENDOR_PRIVATE_KEY: The private key of the deployed vendor
  * - MEMECOIN_ADDRESS: The address where the memecoin was deployed (optional, defaults to vendor address)
  */
 
@@ -163,14 +163,15 @@ async function getUsdcMetadataAddress(vendorAddress: AccountAddress): Promise<Ac
 
 async function main() {
 	// Validate required environment variables
-	if (!process.env.VENDOR_PRIVATE_KEY) {
-		console.error("Error: VENDOR_PRIVATE_KEY environment variable is required");
+	const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.VENDOR_PRIVATE_KEY;
+	if (!privateKey) {
+		console.error("Error: DEPLOYER_PRIVATE_KEY or VENDOR_PRIVATE_KEY environment variable is required");
 		process.exit(1);
 	}
 
 	// Load vendor account from private key
 	const vendor = Account.fromPrivateKey({
-		privateKey: new Ed25519PrivateKey(process.env.VENDOR_PRIVATE_KEY),
+		privateKey: new Ed25519PrivateKey(privateKey),
 	});
 
 	// Use memecoin address if provided, otherwise use vendor address

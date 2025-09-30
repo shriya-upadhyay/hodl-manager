@@ -16,6 +16,10 @@ import { compilePackage, getPackageBytesToPublish } from "./utils";
 /**
  * This script deploys the DoodooCoin memecoin contract.
  * It compiles and publishes the DoraHacks memecoin package.
+ *
+ * Usage:
+ * - Run without arguments to generate a new deployer account
+ * - Set DEPLOYER_PRIVATE_KEY environment variable to use an existing account
  */
 
 // Set up the client
@@ -24,8 +28,10 @@ const config = new AptosConfig({ network: APTOS_NETWORK });
 const aptos = new Aptos(config);
 
 async function main() {
-	// Create deployer account
-	const deployer = Account.generate();
+	// Create or load deployer account
+	const deployer = process.env.DEPLOYER_PRIVATE_KEY
+		? Account.fromPrivateKey({ privateKey: new Ed25519PrivateKey(process.env.DEPLOYER_PRIVATE_KEY) })
+		: Account.generate();
 
 	console.log("\n=== Memecoin Deployment ===");
 	console.log(`Deployer: ${deployer.accountAddress.toString()}`);
@@ -62,8 +68,10 @@ async function main() {
 
 	console.log("\n=== Memecoin deployment completed successfully! ===");
 	console.log(`Deployer address: ${deployer.accountAddress.toString()}`);
-	console.log(`Private key: ${deployer.privateKey.toString()}`);
-	console.log("Save this private key to use in other scripts!");
+	if (!process.env.DEPLOYER_PRIVATE_KEY) {
+		console.log(`Private key: ${deployer.privateKey.toString()}`);
+		console.log("Save this private key to use in other scripts!");
+	}
 }
 
 main().catch(console.error);
