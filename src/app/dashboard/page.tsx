@@ -226,15 +226,17 @@ export default function DashboardPage() {
                         {(() => {
                           const status = tokenStatuses[token.symbol.toUpperCase()]
                           if (!status) return <span>Monitoring thresholds…</span>
-
+                    
                           if (status.takeProfitHit) {
+                            // call DEX to convert to USD stablecoin
                             return <span className="text-emerald-400">Take profit threshold reached.</span>
                           }
 
                           if (status.stopLossHit) {
+                            // call DEX to convert to USD stablecoin
                             return <span className="text-rose-400">Stop loss threshold reached.</span>
                           }
-
+                          
                           return <span>No thresholds hit yet.</span>
                         })()}
                         <div className="flex items-center gap-1">
