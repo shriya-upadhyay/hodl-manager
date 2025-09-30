@@ -7,7 +7,9 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "next lint",
-    "deploy": "tsx scripts/dorahacks_usdc_vendor.ts"
+    "deploy:memecoin": "tsx scripts/deploy-memecoin.ts",
+    "deploy:vendor": "tsx scripts/deploy-usdc-vendor.ts",
+    "test:vendor": "tsx scripts/test-vendor.ts"
   },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^5.1.0",

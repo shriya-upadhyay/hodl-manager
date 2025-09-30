@@ -106,6 +106,72 @@ aptos move run \
   --profile default
 ```
 
+## TypeScript Deployment Scripts
+
+This project includes TypeScript scripts for automated deployment and testing using the Aptos TS SDK. These scripts provide a more streamlined workflow than the manual CLI commands above.
+
+### Available Scripts
+
+- `npm run deploy:memecoin` - Deploy the DoodooCoin memecoin contract
+- `npm run deploy:vendor` - Deploy the USDC Vendor contract
+- `npm run test:vendor` - Test the deployed contracts with minting, transferring, and vending operations
+
+### Usage Workflow
+
+#### 1. Deploy Memecoin
+
+```bash
+npm run deploy:memecoin
+```
+
+This will:
+
+- Generate a new deployer account and fund it
+- Compile and publish the DoodooCoin package
+- Output the deployer address and private key
+
+**Save the private key from the output!**
+
+#### 2. Deploy USDC Vendor
+
+```bash
+# Using the same account as memecoin deployer
+VENDOR_PRIVATE_KEY="your_memecoin_deployer_private_key" npm run deploy:vendor
+
+# Or generate a new vendor account
+npm run deploy:vendor
+```
+
+This will:
+
+- Use existing account (if `VENDOR_PRIVATE_KEY` provided) or generate new one
+- Compile and publish the USDC Vendor package
+- Initialize the vendor contract
+- Output the vendor address and private key
+
+#### 3. Test the Deployed Contracts
+
+```bash
+VENDOR_PRIVATE_KEY="your_vendor_private_key" npm run test:vendor
+
+# Or if memecoin was deployed to a different address
+VENDOR_PRIVATE_KEY="your_vendor_private_key" MEMECOIN_ADDRESS="memecoin_deployer_address" npm run test:vendor
+```
+
+This will:
+
+- Register DoodooCoin for test accounts
+- Mint tokens to the vendor
+- Transfer tokens to test addresses
+- Perform vend operations (swap DoodooCoin for USDC)
+- Display final balances
+
+### Environment Variables
+
+- `VENDOR_PRIVATE_KEY` - Required for deploy:vendor and test:vendor scripts
+- `MEMECOIN_ADDRESS` - Optional for test:vendor (defaults to vendor address)
+- `APTOS_NETWORK` - Network to deploy to (defaults to devnet)
+
 ### Notes
 
 - The `vend` entry in `usdc_vendor` is a multi‑agent transaction (buyer + vendor). For a complete end‑to‑end demo (including vend), you can wire this up with the Aptos TS SDK. A sample script exists at `scripts/dorahacks_usdc_vendor.ts` (devnet by default). If you use it, ensure the paths to the Move packages match this repo structure under `contracts/` and that you have the Aptos CLI installed for local compilation.

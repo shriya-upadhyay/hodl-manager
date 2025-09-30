@@ -11,21 +11,14 @@ import {
 	Network,
 	NetworkToNetworkName,
 } from "@aptos-labs/ts-sdk";
-import { compilePackage, getPackageBytesToPublish } from "./utils";
 
 /**
- * This example demonstrates how to use the DoraHacks USDC Vendor contract.
- * It shows how to:
- * 1. Publish the vendor module
- * 2. Initialize the vendor
- * 3. Register and mint DoodooCoins
- * 4. Transfer coins to a target address
- * 5. Use the vend function to swap DoodooCoin for DoraHacks USDC
+ * This script tests the deployed USDC Vendor and DoodooCoin contracts.
+ * It performs minting, transferring, and vending operations.
  *
- * Before running this example, we should compile the package locally:
- * 1. Acquire the Aptos CLI, see https://aptos.dev/tools/aptos-cli/
- * 2. cd `~/aptos-ts-sdk/examples/typescript`
- * 3. Run `pnpm run dorahacks_usdc_vendor`
+ * Required environment variables:
+ * - VENDOR_PRIVATE_KEY: The private key of the deployed vendor
+ * - MEMECOIN_ADDRESS: The address where the memecoin was deployed (optional, defaults to vendor address)
  */
 
 const DOODOO_COINS_TO_MINT = 1000;
@@ -103,23 +96,6 @@ async function transferCoin(
 	return pendingTxn.hash;
 }
 
-/** Initialize the USDC vendor */
-async function initializeVendor(vendor: Account): Promise<string> {
-	const transaction = await aptos.transaction.build.simple({
-		sender: vendor.accountAddress,
-		data: {
-			function: `${vendor.accountAddress}::usdc_vendor::init`,
-			typeArguments: [],
-			functionArguments: [],
-		},
-	});
-
-	const senderAuthenticator = aptos.transaction.sign({ signer: vendor, transaction });
-	const pendingTxn = await aptos.transaction.submit.simple({ transaction, senderAuthenticator });
-
-	return pendingTxn.hash;
-}
-
 /** Use the vend function to swap DoodooCoin for DoraHacks USDC */
 async function vendCoins(
 	vendor: Account,
@@ -129,8 +105,9 @@ async function vendCoins(
 	coinTypeAddress: AccountAddress,
 	coinType: string,
 ): Promise<string> {
-	const transaction = await aptos.transaction.build.simple({
+	const transaction = await aptos.transaction.build.multiAgent({
 		sender: buyer.accountAddress,
+		secondarySignerAddresses: [vendor.accountAddress],
 		data: {
 			function: `${vendor.accountAddress}::usdc_vendor::vend`,
 			typeArguments: [`${coinTypeAddress}::${coinType}`],
@@ -138,9 +115,9 @@ async function vendCoins(
 		},
 	});
 
-	// This requires both vendor and buyer to sign (multi-agent transaction)
-	const vendorAuthenticator = aptos.transaction.sign({ signer: vendor, transaction });
+	// Both buyer and vendor need to sign
 	const buyerAuthenticator = aptos.transaction.sign({ signer: buyer, transaction });
+	const vendorAuthenticator = aptos.transaction.sign({ signer: vendor, transaction });
 
 	const pendingTxn = await aptos.transaction.submit.multiAgent({
 		transaction,
@@ -185,8 +162,23 @@ async function getUsdcMetadataAddress(vendorAddress: AccountAddress): Promise<Ac
 }
 
 async function main() {
-	// Create accounts
-	const vendor = Account.generate();
+	// Validate required environment variables
+	if (!process.env.VENDOR_PRIVATE_KEY) {
+		console.error("Error: VENDOR_PRIVATE_KEY environment variable is required");
+		process.exit(1);
+	}
+
+	// Load vendor account from private key
+	const vendor = Account.fromPrivateKey({
+		privateKey: new Ed25519PrivateKey(process.env.VENDOR_PRIVATE_KEY),
+	});
+
+	// Use memecoin address if provided, otherwise use vendor address
+	const memecoinAddress = process.env.MEMECOIN_ADDRESS
+		? AccountAddress.fromString(process.env.MEMECOIN_ADDRESS)
+		: vendor.accountAddress;
+
+	// Create test accounts
 	const buyer = Account.generate();
 	const targetAccount = Account.fromPrivateKey({
 		privateKey: new Ed25519PrivateKey(
@@ -194,102 +186,42 @@ async function main() {
 		),
 	});
 
-	console.log("\n=== Addresses ===");
+	console.log("\n=== Testing USDC Vendor ===");
 	console.log(`Vendor: ${vendor.accountAddress.toString()}`);
 	console.log(`Buyer: ${buyer.accountAddress.toString()}`);
 	console.log(`Target: ${targetAccount.accountAddress.toString()}`);
+	console.log(`Memecoin deployed at: ${memecoinAddress.toString()}`);
 
-	// Fund accounts
-	await aptos.fundAccount({
-		accountAddress: vendor.accountAddress,
-		amount: 100_000_000,
-	});
-
+	// Fund test accounts
 	await aptos.fundAccount({
 		accountAddress: buyer.accountAddress,
 		amount: 100_000_000,
 	});
 
-	// Compile packages
-	console.log("\n=== Compiling packages locally ===");
-
-	// Compile the USDC vendor package
-	compilePackage("contracts/dorahacks_usdc_vendor", "contracts/dorahacks_usdc_vendor/dorahacks_usdc_vendor.json", [
-		{ name: "DoraHacks", address: vendor.accountAddress },
-		{ name: "HODLManager", address: vendor.accountAddress },
-	]);
-
-	// Compile the DoodooCoin package
-	compilePackage("contracts/dorahacksCoins", "contracts/dorahacksCoins/dorahacksCoins.json", [
-		{ name: "HODLManager", address: vendor.accountAddress }
-	]);
-
-	// Publish USDC vendor package
-	console.log(`\n=== Publishing USDC Vendor package to ${aptos.config.network} network ===`);
-	const { metadataBytes: vendorMetadataBytes, byteCode: vendorByteCode } = getPackageBytesToPublish("contracts/dorahacks_usdc_vendor/dorahacks_usdc_vendor.json");
-
-	const vendorPublishTransaction = await aptos.publishPackageTransaction({
-		account: vendor.accountAddress,
-		metadataBytes: vendorMetadataBytes,
-		moduleBytecode: vendorByteCode,
-	});
-
-	const vendorPendingTransaction = await aptos.signAndSubmitTransaction({
-		signer: vendor,
-		transaction: vendorPublishTransaction,
-	});
-
-	console.log(`Vendor package transaction hash: ${vendorPendingTransaction.hash}`);
-	await aptos.waitForTransaction({ transactionHash: vendorPendingTransaction.hash });
-
-	// Publish DoodooCoin package
-	console.log(`\n=== Publishing DoodooCoin package to ${aptos.config.network} network ===`);
-	const { metadataBytes: coinMetadataBytes, byteCode: coinByteCode } = getPackageBytesToPublish("contracts/dorahacksCoins/dorahacksCoins.json");
-
-	const coinPublishTransaction = await aptos.publishPackageTransaction({
-		account: vendor.accountAddress,
-		metadataBytes: coinMetadataBytes,
-		moduleBytecode: coinByteCode,
-	});
-
-	const coinPendingTransaction = await aptos.signAndSubmitTransaction({
-		signer: vendor,
-		transaction: coinPublishTransaction,
-	});
-
-	console.log(`DoodooCoin package transaction hash: ${coinPendingTransaction.hash}`);
-	await aptos.waitForTransaction({ transactionHash: coinPendingTransaction.hash });
-
-	// Initialize the vendor
-	console.log("\n=== Initializing USDC Vendor ===");
-	const initHash = await initializeVendor(vendor);
-	await aptos.waitForTransaction({ transactionHash: initHash });
-	console.log("Vendor initialized successfully!");
-
 	// Register DoodooCoin for vendor and buyer
 	console.log("\n=== Registering DoodooCoin ===");
-	const vendorRegisterHash = await registerCoin(vendor, vendor.accountAddress, "devnet_coins::DoodooCoin");
+	const vendorRegisterHash = await registerCoin(vendor, memecoinAddress, "devnet_coins::DoodooCoin");
 	await aptos.waitForTransaction({ transactionHash: vendorRegisterHash });
 
-	const buyerRegisterHash = await registerCoin(buyer, vendor.accountAddress, "devnet_coins::DoodooCoin");
+	const buyerRegisterHash = await registerCoin(buyer, memecoinAddress, "devnet_coins::DoodooCoin");
 	await aptos.waitForTransaction({ transactionHash: buyerRegisterHash });
 
 	// Mint DoodooCoins to vendor
 	console.log(`\n=== Minting ${DOODOO_COINS_TO_MINT} DoodooCoins to vendor ===`);
-	const mintHash = await mintCoin(vendor, vendor.accountAddress, DOODOO_COINS_TO_MINT, vendor.accountAddress, "devnet_coins::DoodooCoin");
+	const mintHash = await mintCoin(vendor, vendor.accountAddress, DOODOO_COINS_TO_MINT, memecoinAddress, "devnet_coins::DoodooCoin");
 	await aptos.waitForTransaction({ transactionHash: mintHash });
 
 	// Transfer some DoodooCoins to target address
 	console.log(`\n=== Transferring ${DOODOO_COINS_TO_TRANSFER} DoodooCoins to target address ===`);
 	const targetAddr = AccountAddress.fromString(TARGET_ADDRESS);
-	const transferHash = await transferCoin(vendor, targetAddr, DOODOO_COINS_TO_TRANSFER, vendor.accountAddress, "devnet_coins::DoodooCoin");
+	const transferHash = await transferCoin(vendor, targetAddr, DOODOO_COINS_TO_TRANSFER, memecoinAddress, "devnet_coins::DoodooCoin");
 	await aptos.waitForTransaction({ transactionHash: transferHash });
 
 	// Check balances
 	console.log("\n=== Checking balances ===");
-	const vendorDoodooBalance = await getBalance(vendor.accountAddress, vendor.accountAddress, "devnet_coins::DoodooCoin");
-	const buyerDoodooBalance = await getBalance(buyer.accountAddress, vendor.accountAddress, "devnet_coins::DoodooCoin");
-	const targetDoodooBalance = await getBalance(targetAddr, vendor.accountAddress, "devnet_coins::DoodooCoin");
+	const vendorDoodooBalance = await getBalance(vendor.accountAddress, memecoinAddress, "devnet_coins::DoodooCoin");
+	const buyerDoodooBalance = await getBalance(buyer.accountAddress, memecoinAddress, "devnet_coins::DoodooCoin");
+	const targetDoodooBalance = await getBalance(targetAddr, memecoinAddress, "devnet_coins::DoodooCoin");
 
 	console.log(`Vendor DoodooCoin balance: ${vendorDoodooBalance}`);
 	console.log(`Buyer DoodooCoin balance: ${buyerDoodooBalance}`);
@@ -297,18 +229,23 @@ async function main() {
 
 	// Transfer some DoodooCoins from vendor to buyer for the vend operation
 	console.log(`\n=== Transferring DoodooCoins to buyer for vend operation ===`);
-	const buyerTransferHash = await transferCoin(vendor, buyer.accountAddress, 100, vendor.accountAddress, "devnet_coins::DoodooCoin");
+	const buyerTransferHash = await transferCoin(vendor, buyer.accountAddress, 100, memecoinAddress, "devnet_coins::DoodooCoin");
 	await aptos.waitForTransaction({ transactionHash: buyerTransferHash });
 
 	// Perform vend operation: buyer swaps DoodooCoin for DoraHacks USDC
 	console.log(`\n=== Performing vend operation: ${USDC_TO_VEND} DoodooCoins for DoraHacks USDC ===`);
-	const vendHash = await vendCoins(vendor, buyer, USDC_TO_VEND, USDC_TO_VEND, vendor.accountAddress, "devnet_coins::DoodooCoin");
-	await aptos.waitForTransaction({ transactionHash: vendHash });
+	try {
+		const vendHash = await vendCoins(vendor, buyer, USDC_TO_VEND, USDC_TO_VEND, memecoinAddress, "devnet_coins::DoodooCoin");
+		await aptos.waitForTransaction({ transactionHash: vendHash });
+		console.log(`Vend operation successful! Hash: ${vendHash}`);
+	} catch (error) {
+		console.error("Vend operation failed:", error);
+	}
 
 	// Check final balances
 	console.log("\n=== Final balances ===");
-	const finalVendorDoodooBalance = await getBalance(vendor.accountAddress, vendor.accountAddress, "devnet_coins::DoodooCoin");
-	const finalBuyerDoodooBalance = await getBalance(buyer.accountAddress, vendor.accountAddress, "devnet_coins::DoodooCoin");
+	const finalVendorDoodooBalance = await getBalance(vendor.accountAddress, memecoinAddress, "devnet_coins::DoodooCoin");
+	const finalBuyerDoodooBalance = await getBalance(buyer.accountAddress, memecoinAddress, "devnet_coins::DoodooCoin");
 
 	console.log(`Vendor DoodooCoin balance: ${finalVendorDoodooBalance}`);
 	console.log(`Buyer DoodooCoin balance: ${finalBuyerDoodooBalance}`);
@@ -321,10 +258,10 @@ async function main() {
 		console.log(`Vendor USDC balance: ${vendorUsdcBalance}`);
 		console.log(`Buyer USDC balance: ${buyerUsdcBalance}`);
 	} catch (error) {
-		console.log("Note: Could not fetch USDC balances yet.");
+		console.log("Note: Could not fetch USDC balances - this is expected if vend operation failed.");
 	}
 
-	console.log("\n=== All operations completed successfully! ===");
+	console.log("\n=== Testing completed! ===");
 }
 
 main().catch(console.error);
