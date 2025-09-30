@@ -15,7 +15,9 @@
     "register:memecoin": "tsx scripts/register-memecoin.ts",
     "test:stop-loss": "tsx scripts/test-stop-loss.ts",
     "test:sell-now": "tsx scripts/test-sell-now.ts",
-    "test:token-removal": "tsx scripts/test-token-removal.ts"
+    "test:token-removal": "tsx scripts/test-token-removal.ts",
+    "test:permanent-removal": "tsx scripts/test-permanent-removal.ts",
+    "test:explorer-links": "tsx scripts/test-explorer-links.ts"
   },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^5.1.0",

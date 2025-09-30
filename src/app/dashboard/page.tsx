@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
-import { Settings, Trash2, DollarSign } from "lucide-react"
+import { Settings, Trash2, DollarSign, ExternalLink, X } from "lucide-react"
 
 interface StrategyToken {
   id: string
@@ -67,8 +67,30 @@ export default function DashboardPage() {
   const [tokenStatuses, setTokenStatuses] = useState<Record<string, TokenStatus>>({})
   const [executingStopLoss, setExecutingStopLoss] = useState<Set<string>>(new Set())
   const [sellingTokens, setSellingTokens] = useState<Set<string>>(new Set())
+  const [notifications, setNotifications] = useState<Array<{
+    id: string;
+    message: string;
+    explorerUrl: string;
+    timestamp: number;
+  }>>([])
   const { connected } = useWallet()
   const router = useRouter()
+
+  // Function to add success notification with explorer link
+  const addNotification = (message: string, explorerUrl: string) => {
+    const notification = {
+      id: Date.now().toString(),
+      message,
+      explorerUrl,
+      timestamp: Date.now(),
+    }
+    setNotifications(prev => [notification, ...prev.slice(0, 4)]) // Keep only 5 most recent
+    
+    // Auto-remove after 10 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== notification.id))
+    }, 10000)
+  }
 
   // Function to permanently remove sold token from strategy
   const removeSoldTokenFromStrategy = (tokenSymbol: string) => {
@@ -138,6 +160,10 @@ export default function DashboardPage() {
 
         // Remove sold token from strategy permanently
         removeSoldTokenFromStrategy(symbol)
+        
+        // Show success notification with explorer link
+        const explorerUrl = `https://explorer.aptoslabs.com/txn/${result.transactionHash}?network=devnet`
+        addNotification(`Stop loss executed: ${token.symbol} → ${result.usdcAmount} USDC`, explorerUrl)
       } else {
         console.error(`❌ Stop loss execution failed for ${symbol}:`, result.error)
       }
@@ -210,6 +236,10 @@ export default function DashboardPage() {
 
         // Remove sold token from strategy permanently
         removeSoldTokenFromStrategy(symbol)
+        
+        // Show success notification with explorer link
+        const explorerUrl = `https://explorer.aptoslabs.com/txn/${result.transactionHash}?network=devnet`
+        addNotification(`Token sold: ${token.symbol} → ${result.usdcMinted} USDC`, explorerUrl)
       } else {
         console.error(`❌ Manual sale failed for ${symbol}:`, result.error)
         alert(`Failed to sell ${symbol}: ${result.error}`)
@@ -336,6 +366,44 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header isConnected={connected} onConnect={() => {}} />
+      
+      {/* Success Notifications */}
+      {notifications.length > 0 && (
+        <div className="fixed top-20 right-4 z-50 space-y-2">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className="bg-emerald-900/90 border border-emerald-700/50 text-emerald-100 p-4 rounded-lg shadow-lg backdrop-blur-sm max-w-sm"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1">
+                  <div className="text-sm font-medium mb-2">
+                    ✅ {notification.message}
+                  </div>
+                  <a
+                    href={notification.explorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-emerald-300 hover:text-emerald-200 underline"
+                  >
+                    View on Explorer
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-emerald-300 hover:text-emerald-200 hover:bg-emerald-800/50"
+                  onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
       <main className="container mx-auto px-4 py-6 max-w-5xl">
         <div className="flex items-center justify-between mb-6">
           <div>
