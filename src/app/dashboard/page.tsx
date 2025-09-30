@@ -70,6 +70,27 @@ export default function DashboardPage() {
   const { connected } = useWallet()
   const router = useRouter()
 
+  // Function to permanently remove sold token from strategy
+  const removeSoldTokenFromStrategy = (tokenSymbol: string) => {
+    if (!strategy) return
+
+    const updatedStrategy = {
+      ...strategy,
+      tokens: strategy.tokens.filter(token => token.symbol.toUpperCase() !== tokenSymbol.toUpperCase())
+    }
+
+    // Update local state
+    setStrategy(updatedStrategy)
+
+    // Update localStorage
+    try {
+      localStorage.setItem("deployedStrategy", JSON.stringify(updatedStrategy))
+      console.log(`🗑️ Removed ${tokenSymbol} from strategy permanently`)
+    } catch (error) {
+      console.error("Failed to update strategy in localStorage:", error)
+    }
+  }
+
   // Function to execute stop loss automatically
   const executeStopLoss = async (token: StrategyToken, currentPrice: number) => {
     const symbol = token.symbol.toUpperCase()
@@ -114,6 +135,9 @@ export default function DashboardPage() {
             soldPrice: currentPrice,
           }
         }))
+
+        // Remove sold token from strategy permanently
+        removeSoldTokenFromStrategy(symbol)
       } else {
         console.error(`❌ Stop loss execution failed for ${symbol}:`, result.error)
       }
@@ -136,8 +160,9 @@ export default function DashboardPage() {
     // Prevent duplicate executions
     if (sellingTokens.has(symbol) || executingStopLoss.has(symbol)) return
     
-    // Don't sell if already executed
+    // Don't sell if already executed or token no longer exists in strategy
     if (currentStatus?.stopLossExecuted) return
+    if (!strategy || !strategy.tokens.find(t => t.symbol.toUpperCase() === symbol)) return
     
     const currentPrice = currentStatus?.price || token.price || 0
     if (currentPrice <= 0) {
@@ -182,6 +207,9 @@ export default function DashboardPage() {
             soldPrice: currentPrice,
           }
         }))
+
+        // Remove sold token from strategy permanently
+        removeSoldTokenFromStrategy(symbol)
       } else {
         console.error(`❌ Manual sale failed for ${symbol}:`, result.error)
         alert(`Failed to sell ${symbol}: ${result.error}`)
@@ -249,15 +277,14 @@ export default function DashboardPage() {
             takeProfitHit,
             stopLossHit,
             lastChecked: timestamp,
-            // Preserve execution status
-            stopLossExecuted: prevStatus?.stopLossExecuted || false,
-            takeProfitExecuted: prevStatus?.takeProfitExecuted || false,
-            executionHash: prevStatus?.executionHash,
-            usdcReceived: prevStatus?.usdcReceived,
-            // Preserve sold status
-            isSold: prevStatus?.isSold || false,
-            soldAt: prevStatus?.soldAt,
-            soldPrice: prevStatus?.soldPrice,
+            // Only preserve status for tokens still in strategy
+            stopLossExecuted: false,
+            takeProfitExecuted: false,
+            executionHash: undefined,
+            usdcReceived: undefined,
+            isSold: false,
+            soldAt: undefined,
+            soldPrice: undefined,
           }
 
           // Automatically execute stop loss if triggered for the first time
@@ -339,29 +366,15 @@ export default function DashboardPage() {
           </Card>
         ) : (
           <div className="space-y-6">
-            {/* Active Tokens */}
-            {strategy.tokens.filter(token => {
-              const status = tokenStatuses[token.symbol.toUpperCase()]
-              return !status?.isSold
-            }).length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Active Holdings</CardTitle>
-                  <CardDescription>
-                    {strategy.tokens.filter(token => {
-                      const status = tokenStatuses[token.symbol.toUpperCase()]
-                      return !status?.isSold
-                    }).length} active token{strategy.tokens.filter(token => {
-                      const status = tokenStatuses[token.symbol.toUpperCase()]
-                      return !status?.isSold
-                    }).length !== 1 ? 's' : ''} being monitored
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {strategy.tokens.filter(token => {
-                    const status = tokenStatuses[token.symbol.toUpperCase()]
-                    return !status?.isSold
-                  }).map((token) => (
+            <Card>
+              <CardHeader>
+                <CardTitle>Active Holdings</CardTitle>
+                <CardDescription>
+                  Monitoring {strategy.tokens.length} token{strategy.tokens.length !== 1 ? 's' : ''} with {strategy.riskLevel} risk level
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {strategy.tokens.map((token) => (
                   <div key={token.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 bg-muted/30 rounded-lg">
                     <div className="flex items-center gap-3">
                       <img src={token.logo} alt={token.name} className="w-8 h-8 rounded-full object-cover" />
@@ -530,79 +543,6 @@ export default function DashboardPage() {
                 ))}
               </CardContent>
             </Card>
-            )}
-
-            {/* Sold Tokens */}
-            {strategy.tokens.filter(token => {
-              const status = tokenStatuses[token.symbol.toUpperCase()]
-              return status?.isSold
-            }).length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>Sold Tokens</span>
-                    <Badge className="bg-slate-700/40 text-slate-300 border-slate-600/50">
-                      Completed
-                    </Badge>
-                  </CardTitle>
-                  <CardDescription>
-                    {strategy.tokens.filter(token => {
-                      const status = tokenStatuses[token.symbol.toUpperCase()]
-                      return status?.isSold
-                    }).length} token{strategy.tokens.filter(token => {
-                      const status = tokenStatuses[token.symbol.toUpperCase()]
-                      return status?.isSold
-                    }).length !== 1 ? 's' : ''} converted to USDC
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {strategy.tokens.filter(token => {
-                    const status = tokenStatuses[token.symbol.toUpperCase()]
-                    return status?.isSold
-                  }).map((token) => {
-                    const status = tokenStatuses[token.symbol.toUpperCase()]
-                    return (
-                      <div key={token.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 bg-muted/20 rounded-lg border border-slate-700/30">
-                        <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <img src={token.logo} alt={token.name} className="w-8 h-8 rounded-full object-cover opacity-60" />
-                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center">
-                              <span className="text-[8px] text-white">✓</span>
-                            </div>
-                          </div>
-                          <div>
-                            <div className="font-medium text-muted-foreground">{token.name} ({token.symbol})</div>
-                            <div className="text-xs text-muted-foreground">
-                              Sold at ${status?.soldPrice?.toFixed(4)} • {status?.soldAt ? new Date(status.soldAt).toLocaleDateString() : 'Unknown date'}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <div className="text-right">
-                            <div className="text-sm font-medium text-emerald-400">
-                              +{status?.usdcReceived?.toFixed(2)} USDC
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {token.balance || 1000} {token.symbol} → USDC
-                            </div>
-                          </div>
-                          {status?.executionHash && (
-                            <a 
-                              href={`https://explorer.aptoslabs.com/txn/${status.executionHash}?network=devnet`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-400 hover:text-blue-300 underline"
-                            >
-                              View Transaction
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </CardContent>
-              </Card>
-            )}
           </div>
         )}
       </main>
