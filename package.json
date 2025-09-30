@@ -9,7 +9,9 @@
     "lint": "next lint",
     "deploy:memecoin": "tsx scripts/deploy-memecoin.ts",
     "deploy:vendor": "tsx scripts/deploy-usdc-vendor.ts",
-    "test:vendor": "tsx scripts/test-vendor.ts"
+    "test:vendor": "tsx scripts/test-vendor.ts",
+    "mint:memecoin": "tsx scripts/mint-memecoin.ts",
+    "register:memecoin": "tsx scripts/register-memecoin.ts"
   },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^5.1.0",
