@@ -222,10 +222,12 @@ export default function Portfolio() {
             <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="text-xs bg-transparent">
-                    <Star className="w-3 h-3 mr-1" />
-                    Watchlist
-                  </Button>
+                  <Link href="/watchlist">
+                    <Button variant="outline" size="sm" className="text-xs bg-transparent">
+                      <Star className="w-3 h-3 mr-1" />
+                      Watchlist
+                    </Button>
+                  </Link>
                 </div>
                 <div className="flex items-center gap-2">
                   <Link href="/dashboard">
