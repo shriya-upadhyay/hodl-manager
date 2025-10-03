@@ -7,8 +7,12 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { riskLevel } = body;
-
+    const riskLevel = body.riskLevel;
+    const symbol = body.symbol;
+    const currentPrice = body.currentPrice;
+    const marketCap = body.marketCap;
+    const change24h = body.change24h;
+    
     if (!riskLevel) {
       return NextResponse.json({ error: "Missing riskLevel in request" }, { status: 400 });
     }
@@ -20,6 +24,12 @@ export async function POST(req: NextRequest) {
         {
           role: "user",
           content: `Generate recommended price multipliers for a ${riskLevel} risk cryptocurrency trading strategy.
+
+Token details:
+- Symbol: ${symbol}
+- Current Price: ${currentPrice}
+- Market Cap: ${marketCap}
+- 24h Change: ${change24h}%
 
 IMPORTANT RULES:
 - Take profit multiplier must be GREATER than 1.0 (e.g., 1.5, 2.0, 3.0) to sell when price goes UP

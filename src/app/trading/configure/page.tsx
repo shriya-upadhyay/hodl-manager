@@ -18,6 +18,8 @@ interface SelectedToken {
   price: number
   balance: number
   logo: string
+  change24h: number
+  marketCap?: number
   riskScore: "safe" | "moderate" | "high"
 }
 
@@ -98,25 +100,16 @@ export default function TradingConfigure() {
     return `${balance.toLocaleString()} ${symbol}`
   }
 
-  const formatPrice = (price: number) => {
-    if (price >= 1) {
-      return `$${price.toFixed(2)}`
-    } else if (price >= 0.01) {
-      return `$${price.toFixed(4)}`
-    } else if (price >= 0.0001) {
-      return `$${price.toFixed(6)}`
-    } else {
-      return `$${price.toFixed(8)}`
-    }
-  }
-
   const fetchAIMultiplierForToken = async (token: SelectedToken, riskLevel: string) => {
+    console.log( "marketCap:", token.marketCap, "change24h:", token.change24h)
   const response = await fetch("/api/ai-multipliers", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       symbol: token.symbol,
       currentPrice: token.price,
+      marketCap: token.marketCap,
+      change24h: token.change24h,
       riskLevel: riskLevel
     }),
   });
@@ -167,7 +160,7 @@ export default function TradingConfigure() {
             : token.price * staticSL;
         } catch (error) {
           console.warn("AI multiplier failed for", token.symbol, error);
-          // fallback already assigned above
+         
         }
       }
 
