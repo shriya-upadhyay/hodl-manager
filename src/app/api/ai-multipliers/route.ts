@@ -7,8 +7,12 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { riskLevel } = body;
-
+    const riskLevel = body.riskLevel;
+    const symbol = body.symbol;
+    const currentPrice = body.currentPrice;
+    const marketCap = body.marketCap;
+    const change24h = body.change24h;
+    
     if (!riskLevel) {
       return NextResponse.json({ error: "Missing riskLevel in request" }, { status: 400 });
     }
@@ -19,7 +23,13 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `Generate recommended take profit and stop loss multipliers for a ${riskLevel} risk strategy. Return **only JSON**, like: { "takeProfit": number, "stopLoss": number }. Do not include any explanation or extra text.`
+          content: `Generate recommended take profit and stop loss multipliers for the a cryptocurrency token.
+Use the following details:
+- Risk Level: ${riskLevel}
+- Symbol: ${symbol}
+- Current Price: ${currentPrice}
+- Market Cap: ${marketCap}
+- 24h Change: ${change24h}% Return **only JSON**, like: { "takeProfit": number, "stopLoss": number }. Do not include any explanation or extra text.`
         },
       ],
     });
