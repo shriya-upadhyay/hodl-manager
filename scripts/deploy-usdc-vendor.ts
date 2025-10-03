@@ -55,11 +55,20 @@ async function main() {
 	console.log("\n=== USDC Vendor Deployment ===");
 	console.log(`Vendor: ${vendor.accountAddress.toString()}`);
 
-	// Fund vendor account
-	await aptos.fundAccount({
-		accountAddress: vendor.accountAddress,
-		amount: 100_000_000,
-	});
+	// Fund vendor account (ignore indexer sync timeout)
+	try {
+		await aptos.fundAccount({
+			accountAddress: vendor.accountAddress,
+			amount: 100_000_000,
+		});
+		console.log("✅ Account funded successfully");
+	} catch (error: any) {
+		if (error.message?.includes('timeout')) {
+			console.log("⚠️  Indexer sync timeout (account may still be funded, continuing...)");
+		} else {
+			throw error;
+		}
+	}
 
 	// Compile the USDC vendor package
 	console.log("\n=== Compiling USDC Vendor package ===");

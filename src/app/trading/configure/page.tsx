@@ -144,8 +144,17 @@ export default function TradingConfigure() {
       let takeProfitTarget = token.price * staticTP;
       let stopLossTarget = token.price * staticSL;
 
-
-      if (aiTakeProfit || aiStopLoss) {
+      // If custom orders are enabled, use custom prices
+      if (customOrders) {
+        if (takeProfitPrice && !isNaN(Number(takeProfitPrice))) {
+          takeProfitTarget = Number(takeProfitPrice);
+        }
+        if (stopLossPrice && !isNaN(Number(stopLossPrice))) {
+          stopLossTarget = Number(stopLossPrice);
+        }
+      }
+      // Otherwise, check if AI multipliers should be used
+      else if (aiTakeProfit || aiStopLoss) {
         try {
           const aiResult = await fetchAIMultiplierForToken(token, riskLevel);
 
