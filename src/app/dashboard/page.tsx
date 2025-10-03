@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/header"
@@ -75,6 +75,19 @@ export default function DashboardPage() {
   }>>([])
   const { connected } = useWallet()
   const router = useRouter()
+  
+  // Use refs to track latest state for the interval callback
+  const tokenStatusesRef = useRef(tokenStatuses)
+  const executingStopLossRef = useRef(executingStopLoss)
+  
+  // Update refs when state changes
+  useEffect(() => {
+    tokenStatusesRef.current = tokenStatuses
+  }, [tokenStatuses])
+  
+  useEffect(() => {
+    executingStopLossRef.current = executingStopLoss
+  }, [executingStopLoss])
 
   // Function to add success notification with explorer link
   const addNotification = (message: string, explorerUrl: string) => {
@@ -298,27 +311,36 @@ export default function DashboardPage() {
           const takeProfitHit = Boolean(strategy.aiTakeProfit && token.takeProfitTarget && match.price >= token.takeProfitTarget)
           const stopLossHit = Boolean(strategy.aiStopLoss && token.stopLossTarget && match.price <= token.stopLossTarget)
 
-          // Get previous status to check if this is a new stop loss trigger
-          const prevStatus = tokenStatuses[symbol]
-          const isNewStopLoss = stopLossHit && (!prevStatus || !prevStatus.stopLossHit) && !prevStatus?.stopLossExecuted
+          // Get previous status from ref to access latest state
+          const prevStatus = tokenStatusesRef.current[symbol]
+          
+          // Only trigger stop loss if:
+          // 1. Stop loss condition is currently met (stopLossHit is true)
+          // 2. Previous status exists (not the first check)
+          // 3. Stop loss was NOT hit in the previous check (transition from safe to danger)
+          // 4. Stop loss has not already been executed
+          const isNewStopLoss = stopLossHit && 
+                                prevStatus && 
+                                !prevStatus.stopLossHit && 
+                                !prevStatus.stopLossExecuted
 
           nextStatuses[symbol] = {
             price: match.price,
             takeProfitHit,
             stopLossHit,
             lastChecked: timestamp,
-            // Only preserve status for tokens still in strategy
-            stopLossExecuted: false,
-            takeProfitExecuted: false,
-            executionHash: undefined,
-            usdcReceived: undefined,
-            isSold: false,
-            soldAt: undefined,
-            soldPrice: undefined,
+            // Preserve execution status from previous state
+            stopLossExecuted: prevStatus?.stopLossExecuted || false,
+            takeProfitExecuted: prevStatus?.takeProfitExecuted || false,
+            executionHash: prevStatus?.executionHash,
+            usdcReceived: prevStatus?.usdcReceived,
+            isSold: prevStatus?.isSold || false,
+            soldAt: prevStatus?.soldAt,
+            soldPrice: prevStatus?.soldPrice,
           }
 
           // Automatically execute stop loss if triggered for the first time
-          if (isNewStopLoss && !executingStopLoss.has(symbol)) {
+          if (isNewStopLoss && !executingStopLossRef.current.has(symbol)) {
             console.log(`🚨 Stop loss triggered for ${symbol} at $${match.price} (target: $${token.stopLossTarget})`)
             executeStopLoss(token, match.price)
           }

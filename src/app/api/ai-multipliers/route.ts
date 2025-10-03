@@ -19,7 +19,19 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `Generate recommended take profit and stop loss multipliers for a ${riskLevel} risk strategy. Return **only JSON**, like: { "takeProfit": number, "stopLoss": number }. Do not include any explanation or extra text.`
+          content: `Generate recommended price multipliers for a ${riskLevel} risk cryptocurrency trading strategy.
+
+IMPORTANT RULES:
+- Take profit multiplier must be GREATER than 1.0 (e.g., 1.5, 2.0, 3.0) to sell when price goes UP
+- Stop loss multiplier must be LESS than 1.0 (e.g., 0.85, 0.7, 0.5) to sell when price goes DOWN
+
+Risk level guidelines:
+- Conservative: takeProfit ~1.5-2.0, stopLoss ~0.85-0.90
+- Moderate: takeProfit ~2.0-2.8, stopLoss ~0.65-0.75  
+- Aggressive: takeProfit ~3.0-4.0, stopLoss ~0.45-0.55
+
+Return ONLY valid JSON in this exact format, no explanation:
+{ "takeProfit": number, "stopLoss": number }`
         },
       ],
     });
@@ -30,11 +42,22 @@ export async function POST(req: NextRequest) {
     let multipliers = { takeProfit: null, stopLoss: null };
     try {
       multipliers = JSON.parse(text);
+      
+      // Validate multipliers are in correct ranges
+      if (typeof multipliers.takeProfit === 'number' && multipliers.takeProfit <= 1.0) {
+        console.warn(`Invalid AI takeProfit multiplier: ${multipliers.takeProfit} (must be > 1.0)`);
+        multipliers.takeProfit = null;
+      }
+      
+      if (typeof multipliers.stopLoss === 'number' && multipliers.stopLoss >= 1.0) {
+        console.warn(`Invalid AI stopLoss multiplier: ${multipliers.stopLoss} (must be < 1.0)`);
+        multipliers.stopLoss = null;
+      }
+      
+      console.log("AI multipliers validated:", multipliers);
     } catch {
       console.warn("Failed to parse LLM response as JSON:", text);
     }
-
-    console.log(text)
 
     return NextResponse.json({ success: true, multipliers });
   } catch (error: any) {
