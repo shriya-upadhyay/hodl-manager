@@ -110,6 +110,29 @@ export default function TradingConfigure() {
     }
   }
 
+  const fetchAIMultiplierForToken = async (token: SelectedToken, riskLevel: string) => {
+  const response = await fetch("/api/ai-multipliers", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      symbol: token.symbol,
+      currentPrice: token.price,
+      riskLevel: riskLevel
+    }),
+  });
+
+  const json = await response.json();
+  const { takeProfit, stopLoss } = json.multipliers;
+  console.log(token.symbol, takeProfit, stopLoss);
+
+  return {
+    ...token,
+    takeProfitTarget: token.price * takeProfit,
+    stopLossTarget: token.price * stopLoss,
+  };
+};
+
+
   const riskTargets = {
     conservative: { takeProfitMultiplier: 1.8, stopLossMultiplier: 0.85 },
     moderate: { takeProfitMultiplier: 2.5, stopLossMultiplier: 0.7 },
@@ -118,41 +141,67 @@ export default function TradingConfigure() {
 
   const estimatedGas = selectedTokens.length * 0.85 // Mock calculation
 
-  const handleDeployStrategy = () => {
-    const { takeProfitMultiplier, stopLossMultiplier } = riskTargets[riskLevel]
+  const handleDeployStrategy = async () => {
+  if (!selectedTokens || selectedTokens.length === 0) return;
 
-    const tokensWithTargets = selectedTokens.map((token) => {
-      const takeProfitTarget = aiTakeProfit ? token.price * takeProfitMultiplier : null
-      const stopLossTarget = aiStopLoss ? token.price * stopLossMultiplier : null
+  const { takeProfitMultiplier: staticTP, stopLossMultiplier: staticSL } = riskTargets[riskLevel];
+
+  const tokensWithTargets = await Promise.all(
+    selectedTokens.map(async (token) => {
+      let takeProfitTarget = token.price * staticTP;
+      let stopLossTarget = token.price * staticSL;
+
+
+      if (aiTakeProfit || aiStopLoss) {
+        try {
+          const aiResult = await fetchAIMultiplierForToken(token, riskLevel);
+
+          console.log("AI Result", aiResult);
+          
+          takeProfitTarget = aiTakeProfit
+            ? (Number(aiResult.takeProfitTarget) || token.price * staticTP)
+            : token.price * staticTP;
+          
+          stopLossTarget = aiStopLoss
+            ? (Number(aiResult.stopLossTarget) || token.price * staticSL)
+            : token.price * staticSL;
+        } catch (error) {
+          console.warn("AI multiplier failed for", token.symbol, error);
+          // fallback already assigned above
+        }
+      }
 
       return {
         ...token,
         takeProfitTarget,
         stopLossTarget,
-      }
+      };
     })
+  );
 
-    const strategyData = {
-      aiTakeProfit,
-      aiStopLoss,
-      riskLevel,
-      customOrders,
-      takeProfitPrice,
-      stopLossPrice,
-      trailingStop,
-      estimatedGas,
-      tokens: tokensWithTargets,
-      timestamp: Date.now(),
-    }
 
-    try {
-      localStorage.setItem("deployedStrategy", JSON.stringify(strategyData))
-    } catch (error) {
-      console.error("Failed to store strategy configuration:", error)
-    }
+  const newStrategy = {
+    aiTakeProfit,
+    aiStopLoss,
+    riskLevel,
+    customOrders,
+    takeProfitPrice: customOrders ? takeProfitPrice : "",
+    stopLossPrice: customOrders ? stopLossPrice : "",
+    trailingStop: customOrders ? trailingStop : "",
+    tokens: tokensWithTargets,
+    estimatedGas: selectedTokens.length * 0.85, // mock calculation
+    timestamp: Date.now(),
+  };
 
-    router.push("/dashboard")
+  try {
+    localStorage.setItem("deployedStrategy", JSON.stringify(newStrategy));
+    console.log("✅ Strategy deployed with AI targets:", tokensWithTargets);
+  } catch (error) {
+    console.error("Failed to store strategy configuration:", error);
   }
+
+  router.push("/dashboard");
+};
 
   // If no tokens selected, redirect back to memecoins page
   if (selectedTokens.length === 0) {

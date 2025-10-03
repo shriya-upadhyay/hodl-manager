@@ -82,6 +82,7 @@ export default function Portfolio() {
   });
 
     const data = await response.json();
+    console.log("graphql response,", data)
     const queriedTokens = data.data.current_fungible_asset_balances;
     
     // Filter out zero balances and deduplicate by symbol
