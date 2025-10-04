@@ -1,4 +1,20 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## To access a deployed version of our platform:
+Navigate to [this link.](https://hodl-manager.vercel.app/)
+
+HODL Manager is the future of advanced trading options on Aptos. It gives users complete control over every aspect of the trading process from choosing tokens to trade to choosing their price targets.
+
+
+Key Features of HODL Manager:
+- Uses Aptos Indexer to load all the tokens in your connected wallet
+- Uses CoinMarketCap API to find information about those tokens such as price, market cap, risk, and percent change in the past 24 hours.
+- Allows users to use predefined price targets, custom price-targets, or AI-powered price targets to execute advanced trading options such as taking profit or stopping loss.
+- The AI-generated price targets are implemented by passing all of the information from the CoinMarketCap API to a Groq model and then using that information to generate the stopLoss and takeProfit multipliers.
+- When the price of the token hits either of the targets that you set, it automatically triggers a sell and converts your token to a stablecoin like USDC.
+
+
+
+
+## If you want to run our platform locally, follow the steps below:
 
 ## Getting Started
 
@@ -20,11 +36,7 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
 ## Deploying Move modules (USDC Vendor & MemeCoin)
 
