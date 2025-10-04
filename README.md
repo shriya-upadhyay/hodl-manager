@@ -1,3 +1,5 @@
+# Welcome to HODL Manager 💰 📈
+
 ## To access a deployed version of our platform:
 Navigate to [this link.](https://hodl-manager.vercel.app/)
 
