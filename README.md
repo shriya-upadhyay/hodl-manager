@@ -189,6 +189,7 @@ This will:
 - `VENDOR_PRIVATE_KEY` - Alternative to DEPLOYER_PRIVATE_KEY for backward compatibility
 - `MEMECOIN_ADDRESS` - Optional for test:vendor (defaults to vendor address)
 - `APTOS_NETWORK` - Network to deploy to (defaults to devnet)
+- `GROQ_API_KEY` - GROQ API Key to send data to/get a response from an AI model
 
 ### Notes
 
